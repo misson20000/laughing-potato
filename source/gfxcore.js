@@ -9,8 +9,10 @@ export class GFXCore {
     this.red = new Color(255, 0, 0);
     this.green = new Color(0, 255, 0);
     this.blue = new Color(0, 0, 255);
-
+    this.white = new Color(255, 255, 255);
+    
     this.game = game;
+    this.ctx.save();
   }
 
   resize() {
@@ -18,6 +20,9 @@ export class GFXCore {
     let ph = this.height;
     this.width  = this.canvas.width  = window.innerWidth ;
     this.height = this.canvas.height = window.innerHeight;
+    if(this.currentCamera) {
+      this.lookThrough(this.currentCamera);
+    }
     if((pw != this.width || ph != this.height) && this.game.state && this.game.state.resize) {
       this.game.state.resize();
     }
@@ -45,26 +50,18 @@ export class GFXCore {
     this.ctx.globalAlpha = 1;
   }
   
-  fillRect(rect, color) {
+  fillRect(x, y, w, h, color) {
     this.ctx.fillStyle = color.toCSS();
     this.ctx.globalAlpha = color.alpha;
     this.ctx.strokeStyle = "none";
-    this.ctx.fillRect(
-      this.currentCamera.projectX(rect.x),
-      this.currentCamera.projectY(rect.y),
-      this.currentCamera.projectW(rect.w),
-      this.currentCamera.projectH(rect.h));
+    this.ctx.fillRect(x, y, w, h);
     this.ctx.globalAlpha = 1;
   }
 
-  outlineRect(rect, color) {
+  outlineRect(x, y, w, h, color) {
     this.ctx.strokeStyle = "1px solid " + color.toCSS();
     this.ctx.globalAlpha = color.alpha;
-    this.ctx.strokeRect(
-      this.currentCamera.projectX(rect.x),
-      this.currentCamera.projectY(rect.y),
-      this.currentCamera.projectW(rect.w),
-      this.currentCamera.projectH(rect.h));
+    this.ctx.strokeRect(x, y, w, h);
     this.ctx.globalAlpha = 1;
   }
 
@@ -84,11 +81,7 @@ export class GFXCore {
     this.ctx.imageSmoothingEnabled = false;
     
     this.ctx.drawImage(
-      img.data,
-      Math.floor(this.currentCamera.projectX(x)),
-      Math.floor(this.currentCamera.projectY(y)),
-      Math.floor(this.currentCamera.projectW(img.data.width)),
-      Math.floor(this.currentCamera.projectH(img.data.height)));
+      img.data, x, y);
   }
 
   drawText(txt, x, y, color) {
@@ -96,9 +89,7 @@ export class GFXCore {
     this.ctx.globalAlpha = color.alpha;
     this.ctx.font = "12px monospace";
     this.ctx.fillText(
-      txt,
-      this.currentCamera.projectX(x),
-      this.currentCamera.projectY(y));
+      txt, x, y);
     this.ctx.globalAlpha = 1;
 
     return this.textWidth(txt);

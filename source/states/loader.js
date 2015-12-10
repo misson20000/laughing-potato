@@ -1,5 +1,6 @@
 import {Camera} from "../camera.js";
 import {ResourceDownloader} from "../resourcemanager.js";
+import {GFXTestState} from "./gfxtest.js";
 import {PlayState} from "./play.js"
 
 export class LoaderState {
@@ -34,7 +35,7 @@ export class LoaderState {
       this.status = "Downloading assets...";
       this.resmgr.flush();
       Promise.all(promises).then(() => {
-        this.game.state = new PlayState(this.game);
+        this.game.state = new GFXTestState(this.game);
       });
     });
 
@@ -47,6 +48,6 @@ export class LoaderState {
     if(this.resmgr.status == "idle") { color = this.game.gfx.green; }
     if(this.resmgr.status == "failed") { color = this.game.gfx.red; }
     if(this.resmgr.status == "loading") { color = this.game.gfx.blue; }
-    this.game.gfx.fillRect({x: -50, y: -50, w: 100, h: 100}, color);
+    this.game.gfx.fillRect(-50, -50, 100, 100, color);
   }
 }

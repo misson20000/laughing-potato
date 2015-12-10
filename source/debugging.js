@@ -281,8 +281,8 @@ export class Debug {
     this.promptArea.y = this.dropdownY + this.consoleArea.h;
     
     this.game.gfx.lookThrough(this.camera);
-    this.game.gfx.fillRect(this.consoleArea, OVERLAY_COLOR);
-    this.game.gfx.fillRect(this.promptArea, PROMPT_COLOR);
+    this.game.gfx.fillRect(this.consoleArea.x, this.consoleArea.y, this.consoleArea.w, this.consoleArea.h, OVERLAY_COLOR);
+    this.game.gfx.fillRect(this.promptArea.x, this.promptArea.y, this.promptArea.w, this.promptArea.h, PROMPT_COLOR);
 
     if(this.dropdownY > -500) {
       let x = 5;

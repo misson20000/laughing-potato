@@ -137,8 +137,10 @@ var GFXCore = (function () {
     this.red = new Color(255, 0, 0);
     this.green = new Color(0, 255, 0);
     this.blue = new Color(0, 0, 255);
+    this.white = new Color(255, 255, 255);
 
     this.game = game;
+    this.ctx.save();
   }
 
   _createClass(GFXCore, [{
@@ -148,6 +150,9 @@ var GFXCore = (function () {
       var ph = this.height;
       this.width = this.canvas.width = window.innerWidth;
       this.height = this.canvas.height = window.innerHeight;
+      if (this.currentCamera) {
+        this.lookThrough(this.currentCamera);
+      }
       if ((pw != this.width || ph != this.height) && this.game.state && this.game.state.resize) {
         this.game.state.resize();
       }
@@ -179,19 +184,19 @@ var GFXCore = (function () {
     }
   }, {
     key: "fillRect",
-    value: function fillRect(rect, color) {
+    value: function fillRect(x, y, w, h, color) {
       this.ctx.fillStyle = color.toCSS();
       this.ctx.globalAlpha = color.alpha;
       this.ctx.strokeStyle = "none";
-      this.ctx.fillRect(this.currentCamera.projectX(rect.x), this.currentCamera.projectY(rect.y), this.currentCamera.projectW(rect.w), this.currentCamera.projectH(rect.h));
+      this.ctx.fillRect(x, y, w, h);
       this.ctx.globalAlpha = 1;
     }
   }, {
     key: "outlineRect",
-    value: function outlineRect(rect, color) {
+    value: function outlineRect(x, y, w, h, color) {
       this.ctx.strokeStyle = "1px solid " + color.toCSS();
       this.ctx.globalAlpha = color.alpha;
-      this.ctx.strokeRect(this.currentCamera.projectX(rect.x), this.currentCamera.projectY(rect.y), this.currentCamera.projectW(rect.w), this.currentCamera.projectH(rect.h));
+      this.ctx.strokeRect(x, y, w, h);
       this.ctx.globalAlpha = 1;
     }
   }, {
@@ -213,7 +218,7 @@ var GFXCore = (function () {
       this.ctx.msImageSmoothingEnabled = false;
       this.ctx.imageSmoothingEnabled = false;
 
-      this.ctx.drawImage(img.data, Math.floor(this.currentCamera.projectX(x)), Math.floor(this.currentCamera.projectY(y)), Math.floor(this.currentCamera.projectW(img.data.width)), Math.floor(this.currentCamera.projectH(img.data.height)));
+      this.ctx.drawImage(img.data, x, y);
     }
   }, {
     key: "drawText",
@@ -221,7 +226,7 @@ var GFXCore = (function () {
       this.ctx.fillStyle = color.toCSS();
       this.ctx.globalAlpha = color.alpha;
       this.ctx.font = "12px monospace";
-      this.ctx.fillText(txt, this.currentCamera.projectX(x), this.currentCamera.projectY(y));
+      this.ctx.fillText(txt, x, y);
       this.ctx.globalAlpha = 1;
 
       return this.textWidth(txt);
@@ -482,20 +487,21 @@ var ResourceDownloader = (function () {
   return ResourceDownloader;
 })();
 
-var Camera$1 = (function () {
-  function Camera$1(viewport) {
-    _classCallCheck(this, Camera$1);
+var Camera = (function () {
+  function Camera(viewport) {
+    _classCallCheck(this, Camera);
 
     this.pos = {};
     this.pos.x = 0;
     this.pos.y = 0;
     this.scale = 1;
+    this.rotate = 0;
 
     this._px = 0;
     this._py = 0;
   }
 
-  _createClass(Camera$1, [{
+  _createClass(Camera, [{
     key: "centerOnPoint",
     value: function centerOnPoint(x, y) {
       this.pos.x = x;
@@ -513,63 +519,64 @@ var Camera$1 = (function () {
       this._py = this.pos.y - Math.floor(viewport.height / 2);
       this.width = viewport.width / this.scale;
       this.height = viewport.height / this.scale;
-    }
-  }, {
-    key: "projectX",
-    value: function projectX(x) {
-      return x * this.scale - this._px;
-    }
-  }, {
-    key: "projectY",
-    value: function projectY(y) {
-      return y * this.scale - this._py;
-    }
-  }, {
-    key: "projectW",
-    value: function projectW(w) {
-      return w * this.scale;
-    }
-  }, {
-    key: "projectH",
-    value: function projectH(h) {
-      return h * this.scale;
+
+      viewport.ctx.resetTransform();
+      viewport.ctx.translate(-this._px, -this._py);
+      viewport.ctx.scale(this.scale, this.scale);
+      viewport.ctx.rotate(this.rotate);
     }
   }]);
 
-  return Camera$1;
+  return Camera;
 })();
 
-var NullCamera$1 = (function () {
-  function NullCamera$1(viewport) {
-    _classCallCheck(this, NullCamera$1);
+var NullCamera = (function () {
+  function NullCamera(viewport) {
+    _classCallCheck(this, NullCamera);
   }
 
-  _createClass(NullCamera$1, [{
+  _createClass(NullCamera, [{
     key: "update",
-    value: function update(viewport) {}
-  }, {
-    key: "projectX",
-    value: function projectX(x) {
-      return x;
-    }
-  }, {
-    key: "projectY",
-    value: function projectY(y) {
-      return y;
-    }
-  }, {
-    key: "projectW",
-    value: function projectW(w) {
-      return w;
-    }
-  }, {
-    key: "projectH",
-    value: function projectH(h) {
-      return h;
+    value: function update(viewport) {
+      viewport.ctx.resetTransform();
     }
   }]);
 
-  return NullCamera$1;
+  return NullCamera;
+})();
+
+var GFXTestState = (function () {
+  function GFXTestState(game) {
+    _classCallCheck(this, GFXTestState);
+
+    this.game = game;
+    this.camera = new Camera();
+    this.camera.scale = 3;
+    this.hud = new NullCamera();
+    this.fps = [];
+  }
+
+  _createClass(GFXTestState, [{
+    key: "render",
+    value: function render() {
+      this.game.gfx.lookThrough(this.hud);
+      this.fps.push(1000.0 / this.game.gametime.delta);
+      if (this.fps.length > 300) {
+        this.fps.shift();
+      }
+      this.game.gfx.drawText("FPS:", 0, 12, this.game.gfx.white);
+      for (var i = 0; i < this.fps.length; i++) {
+        this.game.gfx.fillRect(i, 212 - this.fps[i] * 200 / 60, 1, this.fps[i] * 200 / 60, this.game.gfx.red);
+      }
+      this.game.gfx.lookThrough(this.camera);
+      this.game.gfx.fillRect(-100, 10, 200, 10, this.game.gfx.blue);
+      this.game.gfx.fillRect(-100, -50, 10, 60, this.game.gfx.green);
+      this.camera.rotate += this.game.gametime.delta / 1000.0;
+      this.camera.scale = Math.sin(this.game.gametime.now / 1000.0) + 2.0;
+    }
+  }]);
+
+  return GFXTestState;
 })();
 
 function pushB(a, b) {
@@ -639,7 +646,7 @@ var PlayState = (function () {
     _classCallCheck(this, PlayState);
 
     this.game = game;
-    this.camera = new Camera$1();
+    this.camera = new Camera();
     this.camera.scale = 3;
     this.assets = game.assetManager.assets;
     this.componentTypes = {
@@ -689,7 +696,7 @@ var LoaderState = (function () {
 
     this.status = "Disovering assets...";
 
-    this.camera = new Camera$1();
+    this.camera = new Camera();
 
     this.resmgr.addResourceProvider(0, this.dl);
     this.resmgr.queue("assets.map").then(function (resource) {
@@ -715,7 +722,7 @@ var LoaderState = (function () {
       _this8.status = "Downloading assets...";
       _this8.resmgr.flush();
       Promise.all(promises).then(function () {
-        _this8.game.state = new PlayState(_this8.game);
+        _this8.game.state = new GFXTestState(_this8.game);
       });
     });
 
@@ -736,7 +743,7 @@ var LoaderState = (function () {
       if (this.resmgr.status == "loading") {
         color = this.game.gfx.blue;
       }
-      this.game.gfx.fillRect({ x: -50, y: -50, w: 100, h: 100 }, color);
+      this.game.gfx.fillRect(-50, -50, 100, 100, color);
     }
   }]);
 
@@ -752,7 +759,7 @@ var SnowState = (function () {
     _classCallCheck(this, SnowState);
 
     this.game = game;
-    this.camera = new Camera$1();
+    this.camera = new Camera();
     this.camera.scale = 3;
     this.game.gfx.lookThrough(this.camera);
     this.assets = game.assetManager.assets;
@@ -867,7 +874,7 @@ var Debug = (function () {
 
     this.active = false;
     this.game = game;
-    this.camera = new NullCamera$1();
+    this.camera = new NullCamera();
     this.consoleArea = { x: 0, y: 0, w: 500, h: 500 };
     this.promptArea = { x: 0, y: 500, w: 500, h: 15 };
     this.dropdownVel = 0;
@@ -1134,8 +1141,8 @@ var Debug = (function () {
       this.promptArea.y = this.dropdownY + this.consoleArea.h;
 
       this.game.gfx.lookThrough(this.camera);
-      this.game.gfx.fillRect(this.consoleArea, OVERLAY_COLOR);
-      this.game.gfx.fillRect(this.promptArea, PROMPT_COLOR);
+      this.game.gfx.fillRect(this.consoleArea.x, this.consoleArea.y, this.consoleArea.w, this.consoleArea.h, OVERLAY_COLOR);
+      this.game.gfx.fillRect(this.promptArea.x, this.promptArea.y, this.promptArea.w, this.promptArea.h, PROMPT_COLOR);
 
       if (this.dropdownY > -500) {
         var x = 5;
