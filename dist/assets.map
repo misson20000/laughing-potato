@@ -1,0 +1,32 @@
+[
+  {
+    "url": "devtile.png",
+    "asset": "tiles.dev",
+    "type": "image"
+  },
+  {
+    "url": "snowflake.png",
+    "asset": "object.snowflake",
+    "type": "image"
+  },
+  {
+    "url": "snowhill.png",
+    "asset": "object.snowhill",
+    "type": "image"
+  },
+  {
+    "url": "moon.png",
+    "asset": "object.moon",
+    "type": "image"
+  },
+  {
+    "url": "bigfile",
+    "asset": "misc.bigfile",
+    "type": "data"
+  },
+  {
+    "url": "olive_rogue.ogg",
+    "asset": "sfx.olrogue",
+    "type": "sound"
+  }
+]

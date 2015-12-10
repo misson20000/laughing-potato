@@ -1,0 +1,46 @@
+<html>
+  <body>
+    <table>
+      <theader>
+        <tr>
+          <th>code</th>
+          <th>key</th>
+          <th>charCode (D)</th>
+          <th>keyCode (D)</th>
+          <th>which (D)</th>
+          <th>location</th>
+          <th>ctrlKey</th>
+          <th>shiftKey</th>
+          <th>altKey</th>
+          <th>metaKey</th>
+        </tr>
+      </theader>
+      <tbody id="tb">
+      </tbody>
+    </table>
+
+    <script>
+      tb = document.getElementById("tb");
+      function createTD(dat) {
+      var td = document.createElement("td");
+      td.innerHTML = dat;
+      return td;
+      }
+      document.addEventListener("keypress", function(e) {
+      var tr = document.createElement("tr");
+      tr.appendChild(createTD(e.code));
+      tr.appendChild(createTD(e.key));
+      tr.appendChild(createTD(e.charCode));
+      tr.appendChild(createTD(e.keyCode));
+      tr.appendChild(createTD(e.which));
+      tr.appendChild(createTD(e.location));
+      tr.appendChild(createTD(e.ctrlKey));
+      tr.appendChild(createTD(e.shiftKey));
+      tr.appendChild(createTD(e.altKey));
+      tr.appendChild(createTD(e.metaKey));
+      tb.appendChild(tr);
+      e.preventDefault();
+      });
+    </script>
+  </body>
+</html>
