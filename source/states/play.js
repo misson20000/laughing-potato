@@ -13,6 +13,12 @@ export class PlayState {
     this.camera = new Camera();
     this.camera.scale = 3;
     this.assets = game.assetManager.assets;
+    this.player = {
+      x: 48,
+      y: 48,
+      a: new Animator(this.assets.character.quote.sprite)
+    };
+    this.map = this.assets.map.test;
   }
   
   render() {
@@ -20,5 +26,9 @@ export class PlayState {
     this.game.gfx.clearScreen(SKY_COLOR);
 
     this.game.gfx.drawImage(this.assets.object.moon, 70, -70);
+    this.map.data.drawMap(this.game.gfx);
+    this.player.a.render(this.game.gfx, this.player.x, this.player.y);
+    this.player.a.play("walk");
+    this.player.a.run(this.game.gametime.delta);
   }
 }

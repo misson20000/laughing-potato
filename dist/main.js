@@ -549,83 +549,6 @@ var Animation = (function () {
   return Animation;
 })();
 
-var Animator = (function () {
-  function Animator(asset) {
-    _classCallCheck(this, Animator);
-
-    this.timer = 0;
-    this.frame = 0;
-    this.instructionIndex = 0;
-    this.sprite = asset;
-    this.currentAnimation = null;
-    this.nextAnimation = null;
-  }
-
-  _createClass(Animator, [{
-    key: "beginNextAnimation",
-    value: function beginNextAnimation() {
-      this.currentAnimation = this.nextAnimation;
-      this.nextAnimation = null;
-      this.instructionIndex = 0;
-      this.runInstruction();
-    }
-  }, {
-    key: "runInstruction",
-    value: function runInstruction() {
-      if (this.currentAnimation != null) {
-        var a = this.sprite.data.animations[this.currentAnimation];
-        if (a == null) {
-          return;
-        }
-        if (this.instructionIndex >= a.instructions.length) {
-          this.beginNextAnimation();
-          return;
-        }
-        var i = a.instructions[this.instructionIndex++];
-        if (i.type == "frame") {
-          this.frame = i.frame;
-          this.timer += i.length;
-          if (this.timer <= 0) {
-            this.runInstruction();
-          }
-        }
-        if (i.type == "loop") {
-          if (this.nextAnimation == this.currentAnimation) {
-            this.instructionIndex = i.frame;
-          }
-          this.runInstruction();
-        }
-      }
-    }
-  }, {
-    key: "render",
-    value: function render(gfx, x, y) {
-      var f = this.sprite.data.frames[this.frame];
-      gfx.drawSubImage(this.sprite.data.image, Math.floor(x), Math.floor(y), Math.floor(f.sx), Math.floor(f.sy), Math.floor(this.sprite.data.w), Math.floor(this.sprite.data.h));
-    }
-  }, {
-    key: "run",
-    value: function run(t) {
-      if (this.timer != null) {
-        this.timer -= t;
-        if (this.timer <= 0) {
-          this.runInstruction();
-        }
-      }
-    }
-  }, {
-    key: "play",
-    value: function play(a) {
-      this.nextAnimation = a;
-      if (this.currentAnimation == null || this.timer == null) {
-        this.beginNextAnimation();
-      }
-    }
-  }]);
-
-  return Animator;
-})();
-
 var Color = (function () {
   function Color(r, g, b) {
     var a = arguments.length <= 3 || arguments[3] === undefined ? 255 : arguments[3];
@@ -896,61 +819,6 @@ var NullCamera = (function () {
   return NullCamera;
 })();
 
-var GFXTestState = (function () {
-  function GFXTestState(game) {
-    _classCallCheck(this, GFXTestState);
-
-    this.game = game;
-    this.camera = new Camera();
-    this.camera.scale = 3;
-    this.camera.centerOnPoint(200, 200);
-    this.hud = new NullCamera();
-    this.fps = [];
-    this.assets = game.assetManager.assets;
-    this.quote = {
-      x: 48,
-      y: 48,
-      a: new Animator(this.assets.character.quote.sprite)
-    };
-    this.doTrial = true;
-  }
-
-  _createClass(GFXTestState, [{
-    key: "render",
-    value: function render() {
-
-      /* FPS Meter
-      this.game.gfx.lookThrough(this.hud);
-      this.fps.push(1000.0/this.game.gametime.delta);
-      if(this.fps.length >= 300) {
-        this.fps.shift();
-      }
-      this.game.gfx.drawText("FPS:", 0, 12, this.game.gfx.white);
-      for(let i = 0; i < this.fps.length; i++) {
-        this.game.gfx.fillRect(i, 212-(this.fps[i]*200/60), 1, this.fps[i]*200/60, this.game.gfx.red);
-      }
-      for(let fps = 0; fps <= 60; fps+= 10) {
-        this.game.gfx.fillRect(0, 212-(fps*200/60), 305, 1, this.game.gfx.white);
-        this.game.gfx.drawText(fps, 300, 212-(fps*200/60), this.game.gfx.white);
-      }*/
-
-      this.game.gfx.lookThrough(this.camera);
-      this.game.gfx.fillRect(-100, 10, 200, 10, this.game.gfx.blue);
-      this.game.gfx.fillRect(-100, -50, 10, 60, this.game.gfx.green);
-      this.camera.rotate = Math.sin(this.game.gametime.now / 2000.0) / 3.0;
-      this.camera.scale = Math.sin(this.game.gametime.now / 1000.0) + 2.0;
-
-      this.assets.map.test.data.drawMap(this.game.gfx);
-
-      this.quote.a.render(this.game.gfx, this.quote.x, this.quote.y);
-      this.quote.a.play("walk");
-      this.quote.a.run(this.game.gametime.delta);
-    }
-  }]);
-
-  return GFXTestState;
-})();
-
 // let SKY_COLOR = new Color(128, 128, 255); // day time
 
 var SKY_COLOR = new Color(16, 0, 32); // night time
@@ -963,6 +831,12 @@ var PlayState = (function () {
     this.camera = new Camera();
     this.camera.scale = 3;
     this.assets = game.assetManager.assets;
+    this.player = {
+      x: 48,
+      y: 48,
+      a: new Animator(this.assets.character.quote.sprite)
+    };
+    this.map = this.assets.map.test;
   }
 
   _createClass(PlayState, [{
@@ -972,103 +846,19 @@ var PlayState = (function () {
       this.game.gfx.clearScreen(SKY_COLOR);
 
       this.game.gfx.drawImage(this.assets.object.moon, 70, -70);
+      this.map.data.drawMap(this.game.gfx);
+      this.player.a.render(this.game.gfx, this.player.x, this.player.y);
+      this.player.a.play("walk");
+      this.player.a.run(this.game.gametime.delta);
     }
   }]);
 
   return PlayState;
 })();
 
-// let SKY_COLOR = new Color(128, 128, 255); // day time
-
-var SKY_COLOR$1 = new Color(16, 0, 32); // night time
-
-var Snowflake = (function () {
-  function Snowflake(state) {
-    _classCallCheck(this, Snowflake);
-
-    this.speed = 40 * (1 + Math.random());
-    this.centerX = Math.random() * state.camera.width - state.camera.width / 2;
-    this.wave = {
-      phase: Math.random() * 2 * Math.PI,
-      period: Math.random() * 1.0 + 3.0,
-      amplitude: Math.random() * 20.0
-    };
-    this.x = this.centerX;
-    this.y = Math.random() * state.camera.height - state.camera.height / 2;
-    this.r = 0;
-    this.rs = Math.PI * (Math.random() + 0.2);
-    this.asset = state.assets.object.snowflake;
-  }
-
-  _createClass(Snowflake, [{
-    key: "update",
-    value: function update() {}
-  }, {
-    key: "render",
-    value: function render(state, gfx) {
-      var w = Math.sin(this.wave.phase + state.game.gametime.now / 1000.0 / this.wave.period * 2 * Math.PI);
-      this.x = w * this.wave.amplitude + this.centerX;
-      this.y += this.speed / 1000.0 * state.game.gametime.delta;
-      //this.r = w * Math.PI / 4;
-      this.r += this.rs / 1000.0 * state.game.gametime.delta;
-      if (this.y > state.camera.height / 2) {
-        this.y = -state.camera.height / 2 - 8;
-      }
-      gfx.drawImage(this.asset, this.x, this.y, this.r);
-    }
-  }]);
-
-  return Snowflake;
-})();
-
-var SnowState = (function () {
-  function SnowState(game) {
-    _classCallCheck(this, SnowState);
-
-    this.game = game;
-    this.camera = new Camera();
-    this.game.gfx.lookThrough(this.camera);
-    this.assets = game.assetManager.assets;
-    this.entities = [];
-
-    this.resize();
-  }
-
-  _createClass(SnowState, [{
-    key: "resize",
-    value: function resize() {
-      this.camera.scale = this.game.gfx.width / this.assets.object.snowhill.data.width;
-
-      this.entities.length = 0;
-      for (var i = 0; i < Math.floor(2000 / Math.pow(this.camera.scale, 2)); i++) {
-        this.entities.push(new Snowflake(this));
-      }
-    }
-  }, {
-    key: "render",
-    value: function render() {
-      var _this9 = this;
-
-      this.game.gfx.lookThrough(this.camera);
-      this.game.gfx.clearScreen(SKY_COLOR$1);
-
-      this.game.gfx.drawImage(this.assets.object.moon, 70, -70);
-
-      this.entities.forEach(function (ent) {
-        ent.update();
-        ent.render(_this9, _this9.game.gfx);
-      });
-
-      this.game.gfx.drawImage(this.assets.object.snowhill, -(this.camera.width / 2), -(this.camera.height * (3 / 4)));
-    }
-  }]);
-
-  return SnowState;
-})();
-
 var LoaderState = (function () {
   function LoaderState(game, resmgr, assetmgr) {
-    var _this10 = this;
+    var _this9 = this;
 
     _classCallCheck(this, LoaderState);
 
@@ -1094,18 +884,18 @@ var LoaderState = (function () {
       var promises = [];
 
       var _loop2 = function _loop2(asset) {
-        promises.push(_this10.resmgr.queue(assetMap[asset].url).then(function (resource) {
-          return _this10.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset, assetMap[asset]);
+        promises.push(_this9.resmgr.queue(assetMap[asset].url).then(function (resource) {
+          return _this9.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset, assetMap[asset]);
         }));
       };
 
       for (var asset in assetMap) {
         _loop2(asset);
       }
-      _this10.status = "Downloading assets...";
-      _this10.resmgr.flush();
+      _this9.status = "Downloading assets...";
+      _this9.resmgr.flush();
       Promise.all(promises).then(function () {
-        _this10.game.state = new GFXTestState(_this10.game);
+        _this9.game.state = new PlayState(_this9.game);
       });
     });
 
@@ -1166,7 +956,7 @@ var TEXT_COLOR = new Color(220, 220, 200);
 
 var Debug = (function () {
   function Debug(game) {
-    var _this11 = this;
+    var _this10 = this;
 
     _classCallCheck(this, Debug);
 
@@ -1186,10 +976,7 @@ var Debug = (function () {
     this.commandFuture = [];
 
     var stateMap = {
-      snow: SnowState,
-      play: PlayState,
-      "gfx test": GFXTestState,
-      gfxtest: GFXTestState
+      play: PlayState
     };
 
     this.commands = {
@@ -1202,7 +989,7 @@ var Debug = (function () {
         } else {
           var i = parts.indexOf("to");
           if (i == undefined) {
-            _this11.logError("Invalid syntax. Usage: set <a> [to] <b> / set <a> <b> if a and b are each only one word");
+            _this10.logError("Invalid syntax. Usage: set <a> [to] <b> / set <a> <b> if a and b are each only one word");
             return;
           }
           a = parts.slice(0, i).join(" ");
@@ -1211,37 +998,37 @@ var Debug = (function () {
         switch (a) {
           case "state":
             if (!stateMap[b]) {
-              _this11.logError("No such state '" + b + "'");
+              _this10.logError("No such state '" + b + "'");
               return;
             }
-            _this11.game.state = new stateMap[b](_this11.game);
+            _this10.game.state = new stateMap[b](_this10.game);
             break;
           default:
-            _this11.logError("'" + a + "' not recognized");
+            _this10.logError("'" + a + "' not recognized");
             return;
         }
       },
       reload: function reload(parts) {
         if (parts[0] == "all") {
           if (parts[1] == "assets") {
-            _this11.log("reloading assets...");
-            _this11.game.assetManager.reloadAll();
+            _this10.log("reloading assets...");
+            _this10.game.assetManager.reloadAll();
           } else {
-            _this11.logError("'" + parts[1] + "' not recognized.");
+            _this10.logError("'" + parts[1] + "' not recognized.");
           }
         } else if (parts[0] == "asset") {
-          if (_this11.game.assetManager.directAssets[parts[1]]) {
-            _this11.log("reloading '" + parts[1] + "'");
-            _this11.game.assetManager.directAssets[parts[1]].reload();
+          if (_this10.game.assetManager.directAssets[parts[1]]) {
+            _this10.log("reloading '" + parts[1] + "'");
+            _this10.game.assetManager.directAssets[parts[1]].reload();
           } else {
-            _this11.logError("no such asset");
+            _this10.logError("no such asset");
           }
         } else {
-          if (_this11.game.assetManager.directAssets[parts[0]]) {
-            _this11.log("reloading '" + parts[0] + "'");
-            _this11.game.assetManager.directAssets[parts[0]].reload();
+          if (_this10.game.assetManager.directAssets[parts[0]]) {
+            _this10.log("reloading '" + parts[0] + "'");
+            _this10.game.assetManager.directAssets[parts[0]].reload();
           } else {
-            _this11.logError("'" + parts[0] + "' not recognized.");
+            _this10.logError("'" + parts[0] + "' not recognized.");
           }
         }
       }
@@ -1500,7 +1287,7 @@ var kc = function kc(e) {
 
 var InputManager = (function () {
   function InputManager(elem, debug) {
-    var _this12 = this;
+    var _this11 = this;
 
     _classCallCheck(this, InputManager);
 
@@ -1519,17 +1306,17 @@ var InputManager = (function () {
 
     document.addEventListener("keydown", function (e) {
       if (kc(e) == "Backquote") {
-        _this12.dbg.active = !_this12.dbg.active;
-      } else if (_this12.dbg.active) {
-        _this12.dbg.key(e);
-      } else if (_this12._keymap[kc(e)]) {
-        _this12._betweenInput[_this12._keymap[kc(e)]] = true;
+        _this11.dbg.active = !_this11.dbg.active;
+      } else if (_this11.dbg.active) {
+        _this11.dbg.key(e);
+      } else if (_this11._keymap[kc(e)]) {
+        _this11._betweenInput[_this11._keymap[kc(e)]] = true;
       }
     });
 
     document.addEventListener("keyup", function (e) {
-      if (!_this12.dbg.active && _this12._keymap[kc(e)]) {
-        _this12._betweenInput[_this12._keymap[kc(e)]] = false;
+      if (!_this11.dbg.active && _this11._keymap[kc(e)]) {
+        _this11._betweenInput[_this11._keymap[kc(e)]] = false;
       }
     });
   }
@@ -1583,7 +1370,7 @@ var Key = (function () {
 
 var Tmx = (function () {
   function Tmx(doc, assetMgr) {
-    var _this13 = this;
+    var _this12 = this;
 
     _classCallCheck(this, Tmx);
 
@@ -1619,14 +1406,14 @@ var Tmx = (function () {
           map.promises.push(assetMgr.resourceManager.queue(e.getAttribute("source")).then(function (res) {
             return blobToXML(res.blob);
           }).then(function (xml) {
-            map.tilesets.push(new TmxTileset(xml.documentElement, firstgid, _this13));
+            map.tilesets.push(new TmxTileset(xml.documentElement, firstgid, _this12));
           }));
         } else {
-          map.tilesets.push(new TmxTileset(e, firstgid, _this13));
+          map.tilesets.push(new TmxTileset(e, firstgid, _this12));
         }
       },
       layer: function layer(e) {
-        map.tileLayers.push(new TmxLayer(e, _this13));
+        map.tileLayers.push(new TmxLayer(e, _this12));
       },
       objectgroup: function objectgroup(e) {
         map.objectLayers.push(new TmxObjectLayer(e));
@@ -1689,7 +1476,7 @@ var Tmx = (function () {
 
 var TmxTileset = (function () {
   function TmxTileset(e, firstgid, map) {
-    var _this14 = this;
+    var _this13 = this;
 
     _classCallCheck(this, TmxTileset);
 
@@ -1738,7 +1525,7 @@ var TmxTileset = (function () {
     }
     console.log("adding promise for '" + this.properties.asset + "'");
     map.promises.push(map.assetMgr.promiseAsset(this.properties.asset).then(function (asset) {
-      _this14.image = asset;
+      _this13.image = asset;
     }));
   }
 

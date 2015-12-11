@@ -1,7 +1,6 @@
 import {GFXCore, Color} from "./gfxcore.js";
 import {SFXCore} from "./sfxcore.js";
 import {ResourceManager} from "./resourcemanager.js";
-import {GFXTestState} from "./states/gfxtest.js";
 import {LoaderState} from "./states/loader.js";
 import {PlayState} from "./states/play.js";
 import {Debug} from "./debugging.js";

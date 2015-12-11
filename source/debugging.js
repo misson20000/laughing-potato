@@ -1,8 +1,6 @@
 import {Color} from "./gfxcore.js";
 import {NullCamera} from "./camera.js";
-import {SnowState} from "./states/snow.js";
 import {PlayState} from "./states/play.js";
-import {GFXTestState} from "./states/gfxtest.js";
 
 export class DebugOutput {
   constructor(out, prefix="") {
@@ -41,10 +39,7 @@ export class Debug {
     this.commandFuture = [];
 
     let stateMap = {
-      snow: SnowState,
       play: PlayState,
-      "gfx test": GFXTestState,
-      gfxtest: GFXTestState,
     };
     
     this.commands = {

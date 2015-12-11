@@ -1,8 +1,6 @@
 import {Camera} from "../camera.js";
 import {ResourceDownloader} from "../resourcemanager.js";
-import {GFXTestState} from "./gfxtest.js";
 import {PlayState} from "./play.js";
-import {SnowState} from "./snow.js";
 
 export class LoaderState {
   constructor(game, resmgr, assetmgr) {
@@ -36,7 +34,7 @@ export class LoaderState {
       this.status = "Downloading assets...";
       this.resmgr.flush();
       Promise.all(promises).then(() => {
-        this.game.state = new GFXTestState(this.game);
+        this.game.state = new PlayState(this.game);
       });
     });
 
