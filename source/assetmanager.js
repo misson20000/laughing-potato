@@ -39,7 +39,7 @@ export class AssetManager {
     }
   }
   
-  load(resource, via, target, parameters) {
+  load(resource, via, target, parameters, streaming=false) {
     let o = this.assets;
     let a = target.split(".");
     let i = 0;
@@ -53,7 +53,7 @@ export class AssetManager {
       o = o[a[i]];
     }
     this.dbg.log("set " + a[i]);
-    let asset = new Asset(null, resource.url, this.loaders[via]);
+    let asset = new Asset(null, streaming ? resource : resource.url, this.loaders[via]);
     o[a[i]] = asset;
     this.directAssets[target] = asset;
     this.assetList.push(asset);

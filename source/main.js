@@ -20,6 +20,7 @@ class Game {
     this.assetManager.addLoader("image", this.gfx.imageLoader());
     this.assetManager.addLoader("sprite", this.gfx.spriteLoader());
     this.assetManager.addLoader("sound", this.sfx.soundLoader());
+    this.assetManager.addLoader("music", this.sfx.musicLoader());
     this.assetManager.addLoader("tmx", TmxLoader);
     this.state = new LoaderState(this, this.resourceManager, this.assetManager);
 

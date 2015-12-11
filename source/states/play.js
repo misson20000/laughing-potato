@@ -13,6 +13,7 @@ export class PlayState {
     this.camera = new Camera();
     this.camera.scale = 3;
     this.assets = game.assetManager.assets;
+    this.bgm = game.sfx.playMusic(this.assets.music.vs_hero);
   }
   
   render() {
