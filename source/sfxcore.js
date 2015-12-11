@@ -14,7 +14,7 @@ export class SFXCore {
   }
 
   soundLoader() {
-    let loader = {load: (res) => {
+    let loader = {load: (res, mgr, opt) => {
       return new FilePromiseReader(res.blob).arrayBuffer().then((ab) => {
         return this.ctx.decodeAudioData(ab);
       });

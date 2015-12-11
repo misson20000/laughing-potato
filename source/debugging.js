@@ -2,6 +2,7 @@ import {Color} from "./gfxcore.js";
 import {NullCamera} from "./camera.js";
 import {SnowState} from "./states/snow.js";
 import {PlayState} from "./states/play.js";
+import {GFXTestState} from "./states/gfxtest.js";
 
 export class DebugOutput {
   constructor(out, prefix="") {
@@ -41,7 +42,9 @@ export class Debug {
 
     let stateMap = {
       snow: SnowState,
-      play: PlayState
+      play: PlayState,
+      "gfx test": GFXTestState,
+      gfxtest: GFXTestState,
     };
     
     this.commands = {
@@ -290,7 +293,7 @@ export class Debug {
       x+= this.game.gfx.drawText(this.prompt.before, x, y, TEXT_COLOR);
       let cw = this.game.gfx.textWidth(this.prompt.cursor);
       if(this.prompt.blinkState) {
-        this.game.gfx.fillRect({x, y: y-10, w: cw, h: 12}, TEXT_COLOR);
+        this.game.gfx.fillRect(x, y-10, cw, 12, TEXT_COLOR);
       }
       this.game.gfx.drawText(this.prompt.cursor, x, y, this.prompt.blinkState ? this.game.gfx.black : TEXT_COLOR);
       x+= cw;

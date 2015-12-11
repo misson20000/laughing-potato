@@ -17,6 +17,7 @@ class Game {
     this.resourceManager = new ResourceManager(this.dbg.out("ResourceManager"));
     this.assetManager = new AssetManager(this.resourceManager, this.dbg.out("AssetManager"));
     this.assetManager.addLoader("image", this.gfx.imageLoader());
+    this.assetManager.addLoader("sprite", this.gfx.spriteLoader());
     this.assetManager.addLoader("sound", this.sfx.soundLoader());
     this.state = new LoaderState(this, this.resourceManager, this.assetManager);
 

@@ -1,7 +1,9 @@
+import {blobToXML} from "./util.js";
+
 export class Tmx {
-  constructor(doc) {
-    this.assets = [];
-    this.root = doc.documentElement;
+  constructor(doc, assetMgr) {
+    this.promises = [];
+    let root = this.root = doc.documentElement;
     if(root.tagName != "map") {
       throw "TMX root tag name is not 'map'";
     }
@@ -15,21 +17,35 @@ export class Tmx {
     this.height = parseInt(root.getAttribtue("height"));
     this.tilewidth  = parseInt(root.getAttribute("tilewidth"));
     this.tileheight = parseInt(root.getAttribute("tileheight"));
+    // ignore background color and render order
+
+    this.tilesets = [];
+
+    let parseFunctions = {
+      tileset: (e) => {
+        let firstgid = parseInt(e.getAttribute("first"));
+        if(e.hasAttribute("source")) {
+          this.promises.push(assetMgr.resourceManager.queue(e.getAttribute("source")).then((res) => {
+            
+          });
+        }
+      }
+    };
+    
+    root.children.forEach((child) => {
+      
+    });
   }
 }
 
 export let TmxLoader = {
   load: function(res, assetMgr) {
-    return new Promise((resolve, reject) => {
-      let xhr = new XMLHttpRequest();
-      xhr.onload = () => resolve(xhr.responseXML);
-      xhr.onerror = reject;
-      xhr.open("GET", URL.createObjectURL(res.blob));
-      xhr.responseType = "document";
-      xhr.send();
-    }).then((doc) => {
-      let tmx = new Tmx(doc);
-      return Promise.all(tmx.assets.map((asset) => assetMgr.promiseAsset(asset))).then(() => tmx);
+    return blobToXML(res.blob).then((doc) => {
+      let tmx = new Tmx(doc, assetMgr);
+      return Promise.all(tmx.assets.map((asset) => assetMgr.promiseAsset(asset))).then(() => {
+        tmx.hasAssets();
+        return tmx;
+      });
     });
   }
 }

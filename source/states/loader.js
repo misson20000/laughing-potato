@@ -1,7 +1,8 @@
 import {Camera} from "../camera.js";
 import {ResourceDownloader} from "../resourcemanager.js";
 import {GFXTestState} from "./gfxtest.js";
-import {PlayState} from "./play.js"
+import {PlayState} from "./play.js";
+import {SnowState} from "./snow.js";
 
 export class LoaderState {
   constructor(game, resmgr, assetmgr) {
@@ -28,7 +29,7 @@ export class LoaderState {
       for(let asset in assetMap) {
         promises.push(
           this.resmgr.queue(assetMap[asset].url).then((resource) => {
-            return this.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset);
+            return this.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset, assetMap[asset]);
           })
         );
       }

@@ -20,13 +20,14 @@
     "type": "image"
   },
   {
-    "url": "bigfile",
-    "asset": "misc.bigfile",
-    "type": "data"
+    "url": "quote.png",
+    "asset": "character.quote.image",
+    "type": "image"
   },
   {
-    "url": "olive_rogue.ogg",
-    "asset": "sfx.olrogue",
-    "type": "sound"
+    "url": "sprites/player.json",
+    "asset": "character.quote.sprite",
+    "image": "character.quote.image",
+    "type": "sprite"
   }
 ]

@@ -4,11 +4,12 @@ export class AssetManager {
     this.dbg = dbg;
     this.assets = {};
     this.directAssets = {};
+    this.assetPromises = {};
     this.loaders = {};
     this.assetList = [];
 
     let dataLoader;
-    this.addLoader("data", dataLoader = {load: (res) => {
+    this.addLoader("data", dataLoader = {load: (res, mgr, opt) => {
       return new Promise((resolve, reject) => {
         let fileReader = new FileReader();
         fileReader.onload = () => {
@@ -38,11 +39,11 @@ export class AssetManager {
     }
   }
   
-  load(resource, via, target) {
+  load(resource, via, target, parameters) {
     let o = this.assets;
     let a = target.split(".");
     let i = 0;
-    this.dbg.log("loading " + target);
+    this.dbg.log("loading " + target + " via " + via);
     for(i = 0; i < a.length-1; i++) {
       if(o[a[i]] == undefined) {
         this.dbg.log("create " + a[i]);
@@ -56,13 +57,20 @@ export class AssetManager {
     o[a[i]] = asset;
     this.directAssets[target] = asset;
     this.assetList.push(asset);
-    return asset.promise = this.loaders[via].load(resource).then((dat) => {
+    asset.promise = this.loaders[via].load(resource, this, parameters).then((dat) => {
       asset.data = dat;
       this.dbg.log(target + " promise resolved");
       return asset;
     }, (reason) => {
       this.dbg.log(target + " promise rejected because " + reason);
     });
+
+    if(this.assetPromises[target]) {
+      asset.promise.then(this.assetPromises[target].resolve,
+                         this.assetPromises[target].reject);
+    }
+    
+    return asset.promise;
   }
 
   reload(asset) {

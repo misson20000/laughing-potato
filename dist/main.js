@@ -2,6 +2,8 @@
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
+function _typeof(obj) { return obj && typeof Symbol !== "undefined" && obj.constructor === Symbol ? "symbol" : typeof obj; }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var AssetManager = (function () {
@@ -12,11 +14,12 @@ var AssetManager = (function () {
     this.dbg = dbg;
     this.assets = {};
     this.directAssets = {};
+    this.assetPromises = {};
     this.loaders = {};
     this.assetList = [];
 
     var dataLoader = undefined;
-    this.addLoader("data", dataLoader = { load: function load(res) {
+    this.addLoader("data", dataLoader = { load: function load(res, mgr, opt) {
         return new Promise(function (resolve, reject) {
           var fileReader = new FileReader();
           fileReader.onload = function () {
@@ -52,13 +55,13 @@ var AssetManager = (function () {
     }
   }, {
     key: "load",
-    value: function load(resource, via, target) {
+    value: function load(resource, via, target, parameters) {
       var _this2 = this;
 
       var o = this.assets;
       var a = target.split(".");
       var i = 0;
-      this.dbg.log("loading " + target);
+      this.dbg.log("loading " + target + " via " + via);
       for (i = 0; i < a.length - 1; i++) {
         if (o[a[i]] == undefined) {
           this.dbg.log("create " + a[i]);
@@ -72,13 +75,19 @@ var AssetManager = (function () {
       o[a[i]] = asset;
       this.directAssets[target] = asset;
       this.assetList.push(asset);
-      return asset.promise = this.loaders[via].load(resource).then(function (dat) {
+      asset.promise = this.loaders[via].load(resource, this, parameters).then(function (dat) {
         asset.data = dat;
         _this2.dbg.log(target + " promise resolved");
         return asset;
       }, function (reason) {
         _this2.dbg.log(target + " promise rejected because " + reason);
       });
+
+      if (this.assetPromises[target]) {
+        asset.promise.then(this.assetPromises[target].resolve, this.assetPromises[target].reject);
+      }
+
+      return asset.promise;
     }
   }, {
     key: "reload",
@@ -126,6 +135,82 @@ var Asset = (function () {
   return Asset;
 })();
 
+var FilePromiseReader = (function () {
+  function FilePromiseReader(file) {
+    _classCallCheck(this, FilePromiseReader);
+
+    this.reader = new FileReader();
+    this.file = file;
+  }
+
+  _createClass(FilePromiseReader, [{
+    key: "arrayBuffer",
+    value: function arrayBuffer() {
+      var _this3 = this;
+
+      return new Promise(function (resolve, reject) {
+        _this3.reader.onload = function () {
+          resolve(_this3.reader.result);
+        };
+        _this3.reader.onerror = function () {
+          reject(_this3.reader.error);
+        };
+        _this3.reader.readAsArrayBuffer(_this3.file);
+      });
+    }
+  }, {
+    key: "text",
+    value: function text() {
+      var _this4 = this;
+
+      return new Promise(function (resolve, reject) {
+        _this4.reader.onload = function () {
+          resolve(_this4.reader.result);
+        };
+        _this4.reader.onerror = function () {
+          reject(_this4.reader.error);
+        };
+        _this4.reader.readAsText(_this4.file);
+      });
+    }
+  }]);
+
+  return FilePromiseReader;
+})();
+
+var JSONAssertions = (function () {
+  function JSONAssertions(obj) {
+    _classCallCheck(this, JSONAssertions);
+
+    this.obj = obj;
+  }
+
+  _createClass(JSONAssertions, [{
+    key: "isObject",
+    value: function isObject(v) {
+      if (!v || (typeof v === "undefined" ? "undefined" : _typeof(v)) != "object") {
+        throw v + " is not an object (it's a " + (typeof v === "undefined" ? "undefined" : _typeof(v)) + ")";
+      }
+    }
+  }, {
+    key: "isNumber",
+    value: function isNumber(v) {
+      if (!v && v != 0 || typeof v != "number") {
+        throw v + " is not a number (it's a " + (typeof v === "undefined" ? "undefined" : _typeof(v)) + ")";
+      }
+    }
+  }, {
+    key: "isArray",
+    value: function isArray(v) {
+      if (!v || !Array.isArray(v)) {
+        throw v + " is not an array (it's a " + (typeof v === "undefined" ? "undefined" : _typeof(v)) + ")";
+      }
+    }
+  }]);
+
+  return JSONAssertions;
+})();
+
 var GFXCore = (function () {
   function GFXCore(game, canvas) {
     _classCallCheck(this, GFXCore);
@@ -168,7 +253,10 @@ var GFXCore = (function () {
     value: function clearScreen(color) {
       this.ctx.fillStyle = color.toCSS();
       this.ctx.globalAlpha = color.alpha;
+      this.ctx.save();
+      this.ctx.resetTransform();
       this.ctx.fillRect(0, 0, this.width, this.height);
+      this.ctx.restore();
       this.ctx.globalAlpha = 1;
     }
   }, {
@@ -212,13 +300,33 @@ var GFXCore = (function () {
   }, {
     key: "drawImage",
     value: function drawImage(img, x, y) {
+      var spin = arguments.length <= 3 || arguments[3] === undefined ? 0 : arguments[3];
+
       //for some reason it doesn't work it I put this somewhere else?
       this.ctx.mozImageSmoothingEnabled = false;
       this.ctx.webkitImageSmoothingEnabled = false;
       this.ctx.msImageSmoothingEnabled = false;
       this.ctx.imageSmoothingEnabled = false;
 
-      this.ctx.drawImage(img.data, x, y);
+      if (spin == 0) {
+        this.ctx.drawImage(img.data, x, y);
+      } else {
+        this.ctx.save();
+        this.ctx.translate(x + img.data.width / 2, y + img.data.width / 2);
+        this.ctx.rotate(spin);
+        this.ctx.drawImage(img.data, -img.data.width / 2, -img.data.height / 2);
+        this.ctx.restore();
+      }
+    }
+  }, {
+    key: "drawSubImage",
+    value: function drawSubImage(img, x, y, sx, sy, sw, sh) {
+      this.ctx.mozImageSmoothingEnabled = false;
+      this.ctx.webkitImageSmoothingEnabled = false;
+      this.ctx.msImageSmoothingEnabled = false;
+      this.ctx.imageSmoothingEnabled = false;
+
+      this.ctx.drawImage(img.data, sx, sy, sw, sh, x, y, sw, sh);
     }
   }, {
     key: "drawText",
@@ -239,7 +347,7 @@ var GFXCore = (function () {
   }, {
     key: "imageLoader",
     value: function imageLoader() {
-      var loader = { load: function load(res) {
+      var loader = { load: function load(res, mgr, opt) {
           var img = new Image();
           img.src = URL.createObjectURL(res.blob);
           return new Promise(function (resolve, reject) {
@@ -255,9 +363,217 @@ var GFXCore = (function () {
 
       return loader;
     }
+  }, {
+    key: "spriteLoader",
+    value: function spriteLoader() {
+      var loader = { load: function load(res, mgr, opt) {
+          return new FilePromiseReader(res.blob).text().then(function (txt) {
+            return JSON.parse(txt);
+          }).then(function (json) {
+            return mgr.promiseAsset(opt.image).then(function (img) {
+              return [img, json];
+            });
+          }).then(function (arr) {
+            var img = arr[0];
+            var json = arr[1];
+            var a = new JSONAssertions(json);
+            a.isObject(json.bbox);
+            a.isNumber(json.bbox.x);
+            a.isNumber(json.bbox.y);
+            a.isNumber(json.bbox.w);
+            a.isNumber(json.bbox.h);
+
+            a.isObject(json.size);
+            a.isNumber(json.size.w);
+            a.isNumber(json.size.h);
+
+            var s = new Sprite(img, json.size.w, json.size.h, json.bbox.x, json.bbox.y, json.bbox.w, json.bbox.h);
+            a.isArray(json.frames);
+            json.frames.forEach(function (frame) {
+              a.isObject(frame);
+              a.isObject(frame.source);
+              a.isNumber(frame.source.x);
+              a.isNumber(frame.source.y);
+              var sx = frame.source.x;
+              var sy = frame.source.y;
+              var ax = undefined,
+                  ay = undefined;
+              if (frame.action_point) {
+                a.isObject(frame.action_point);
+                a.isNumber(frame.action_point.x);
+                a.isNumber(frame.action_point.y);
+                ax = frame.action_point.x;
+                ay = frame.action_point.y;
+              }
+              s.addFrame(sx, sy, ax, ay);
+            });
+
+            a.isObject(json.animations);
+
+            var _loop = function _loop(name) {
+              var aj = json.animations[name];
+              a.isArray(aj);
+              var anim = new Animation();
+              aj.forEach(function (instruction) {
+                a.isObject(instruction);
+                if (instruction.frame != undefined) {
+                  a.isNumber(instruction.frame);
+                  var frame = instruction.frame;
+                  var length = undefined;
+                  if (instruction.length) {
+                    a.isNumber(instruction.length);
+                    length = instruction.length;
+                  }
+                  anim.addInstruction("frame", frame, length);
+                } else if (instruction.loop != undefined) {
+                  a.isNumber(instruction.loop);
+                  anim.addInstruction("loop", instruction.loop);
+                } else {
+                  throw "invalid instruction";
+                }
+              });
+              s.addAnimation(name, anim);
+            };
+
+            for (var name in json.animations) {
+              _loop(name);
+            };
+
+            return s;
+          });
+        } };
+      return loader;
+    }
   }]);
 
   return GFXCore;
+})();
+
+var Sprite = (function () {
+  function Sprite(asset, w, h, bx, by, bw, bh) {
+    _classCallCheck(this, Sprite);
+
+    this.image = asset;
+    this.w = w;
+    this.h = h;
+    this.bx = bx;
+    this.by = by;
+    this.bw = bw;
+    this.bh = bh;
+
+    this.frames = [];
+    this.animations = {};
+  }
+
+  _createClass(Sprite, [{
+    key: "addFrame",
+    value: function addFrame(sx, sy, ax, ay) {
+      this.frames.push({ sx: sx, sy: sy, ax: ax, ay: ay });
+    }
+  }, {
+    key: "addAnimation",
+    value: function addAnimation(name, anim) {
+      this.animations[name] = anim;
+    }
+  }]);
+
+  return Sprite;
+})();
+
+var Animation = (function () {
+  function Animation() {
+    _classCallCheck(this, Animation);
+
+    this.instructions = [];
+  }
+
+  _createClass(Animation, [{
+    key: "addInstruction",
+    value: function addInstruction(type, frame) {
+      var length = arguments.length <= 2 || arguments[2] === undefined ? null : arguments[2];
+
+      this.instructions.push({ type: type, frame: frame, length: length });
+    }
+  }]);
+
+  return Animation;
+})();
+
+var Animator = (function () {
+  function Animator(asset) {
+    _classCallCheck(this, Animator);
+
+    this.timer = 0;
+    this.frame = 0;
+    this.instructionIndex = 0;
+    this.sprite = asset;
+    this.currentAnimation = null;
+    this.nextAnimation = null;
+  }
+
+  _createClass(Animator, [{
+    key: "beginNextAnimation",
+    value: function beginNextAnimation() {
+      this.currentAnimation = this.nextAnimation;
+      this.nextAnimation = null;
+      this.instructionIndex = 0;
+      this.runInstruction();
+    }
+  }, {
+    key: "runInstruction",
+    value: function runInstruction() {
+      if (this.currentAnimation != null) {
+        var a = this.sprite.data.animations[this.currentAnimation];
+        if (a == null) {
+          return;
+        }
+        if (this.instructionIndex >= a.instructions.length) {
+          this.beginNextAnimation();
+          return;
+        }
+        var i = a.instructions[this.instructionIndex++];
+        if (i.type == "frame") {
+          this.frame = i.frame;
+          this.timer += i.length;
+          if (this.timer <= 0) {
+            this.runInstruction();
+          }
+        }
+        if (i.type == "loop") {
+          if (this.nextAnimation == this.currentAnimation) {
+            this.instructionIndex = i.frame;
+          }
+          this.runInstruction();
+        }
+      }
+    }
+  }, {
+    key: "render",
+    value: function render(gfx, x, y) {
+      var f = this.sprite.data.frames[this.frame];
+      gfx.drawSubImage(this.sprite.data.image, Math.floor(x), Math.floor(y), Math.floor(f.sx), Math.floor(f.sy), Math.floor(this.sprite.data.w), Math.floor(this.sprite.data.h));
+    }
+  }, {
+    key: "run",
+    value: function run(t) {
+      if (this.timer != null) {
+        this.timer -= t;
+        if (this.timer <= 0) {
+          this.runInstruction();
+        }
+      }
+    }
+  }, {
+    key: "play",
+    value: function play(a) {
+      this.nextAnimation = a;
+      if (this.currentAnimation == null || this.timer == null) {
+        this.beginNextAnimation();
+      }
+    }
+  }]);
+
+  return Animator;
 })();
 
 var Color = (function () {
@@ -271,44 +587,17 @@ var Color = (function () {
     this.b = b;
     this.a = a;
     this.alpha = a / 255;
+    this.css = "#" + (this.r < 16 ? "0" : "") + this.r.toString(16) + (this.g < 16 ? "0" : "") + this.g.toString(16) + (this.b < 16 ? "0" : "") + this.b.toString(16);
   }
 
   _createClass(Color, [{
     key: "toCSS",
     value: function toCSS() {
-      return "#" + (this.r < 16 ? "0" : "") + this.r.toString(16) + (this.g < 16 ? "0" : "") + this.g.toString(16) + (this.b < 16 ? "0" : "") + this.b.toString(16);
+      return this.css;
     }
   }]);
 
   return Color;
-})();
-
-var FilePromiseReader = (function () {
-  function FilePromiseReader(file) {
-    _classCallCheck(this, FilePromiseReader);
-
-    this.reader = new FileReader();
-    this.file = file;
-  }
-
-  _createClass(FilePromiseReader, [{
-    key: "arrayBuffer",
-    value: function arrayBuffer() {
-      var _this3 = this;
-
-      return new Promise(function (resolve, reject) {
-        _this3.reader.onload = function () {
-          resolve(_this3.reader.result);
-        };
-        _this3.reader.onerror = function () {
-          reject(_this3.reader.error);
-        };
-        _this3.reader.readAsArrayBuffer(_this3.file);
-      });
-    }
-  }]);
-
-  return FilePromiseReader;
 })();
 
 var Sound = function Sound(src, gain) {
@@ -328,11 +617,11 @@ var SFXCore = (function () {
   _createClass(SFXCore, [{
     key: "soundLoader",
     value: function soundLoader() {
-      var _this4 = this;
+      var _this5 = this;
 
-      var loader = { load: function load(res) {
+      var loader = { load: function load(res, mgr, opt) {
           return new FilePromiseReader(res.blob).arrayBuffer().then(function (ab) {
-            return _this4.ctx.decodeAudioData(ab);
+            return _this5.ctx.decodeAudioData(ab);
           });
         } };
 
@@ -385,7 +674,7 @@ var ResourceManager = (function () {
   }, {
     key: "_tryDL",
     value: function _tryDL(job, providerNum) {
-      var _this5 = this;
+      var _this6 = this;
 
       if (providerNum >= this.providers.length) {
         //ran out of providers
@@ -399,25 +688,23 @@ var ResourceManager = (function () {
 
       this.loading = job.url;
       this.providers[providerNum].provider.provide(job.url, this.dbg).then(function (resource) {
-        return resource.blob();
-      }, function (reason) {
-        // failiure
-        _this5.dbg.log("failiure, trying next provider");
-        _this5._tryDL(job, providerNum + 1);
-      }).then(function (resource) {
         // success
-        _this5.dbg.log("success");
+        _this6.dbg.log("success");
         var fin = new Resource(job.url, resource);
-        _this5.resources[job.url] = fin;
+        _this6.resources[job.url] = fin;
         job.resolve(fin);
-        _this5._queue.shift();
-        if (_this5._queue.length > 0) {
-          _this5._tryDL(_this5._queue[0], 0);
+        _this6._queue.shift();
+        if (_this6._queue.length > 0) {
+          _this6._tryDL(_this6._queue[0], 0);
         } else {
-          _this5.dbg.log("finished queue");
-          _this5.status = "idle";
+          _this6.dbg.log("finished queue");
+          _this6.status = "idle";
           return;
         }
+      }, function (reason) {
+        // failiure
+        _this6.dbg.log("failiure, trying next provider");
+        _this6._tryDL(job, providerNum + 1);
       });
     }
   }, {
@@ -429,21 +716,35 @@ var ResourceManager = (function () {
   }, {
     key: "reload",
     value: function reload(resource) {
-      var _this6 = this;
+      var _this7 = this;
 
       this.status = "loading";
       return new Promise(function (resolve, reject) {
-        _this6._tryDL({ url: resource, resolve: resolve, reject: reject }, 0);
+        _this7._tryDL({ url: resource, resolve: resolve, reject: reject }, 0);
       });
     }
   }, {
     key: "queue",
     value: function queue(resource) {
-      var self = this;
-      this.dbg.log("Queued " + resource);
-      return new Promise(function (resolve, reject) {
-        self._queue.push({ url: resource, resolve: resolve, reject: reject });
-      });
+      var _this8 = this;
+
+      if (!this.resources[resource]) {
+        var _ret2 = (function () {
+          var self = _this8;
+          _this8.dbg.log("Queued " + resource);
+          return {
+            v: new Promise(function (resolve, reject) {
+              self._queue.push({ url: resource, resolve: resolve, reject: reject });
+            })
+          };
+        })();
+
+        if ((typeof _ret2 === "undefined" ? "undefined" : _typeof(_ret2)) === "object") return _ret2.v;
+      } else {
+        return new Promise(function (resolve, reject) {
+          resolve(_this8.resources[resource]);
+        });
+      }
     }
   }]);
 
@@ -471,7 +772,7 @@ var ResourceDownloader = (function () {
           dbg.log("got response");
           if (response.ok) {
             dbg.log("ok, resolving");
-            resolve(response);
+            resolve(response.blob());
           } else {
             dbg.log("failed, rejecting");
             reject(response.status + " " + response.statusText);
@@ -554,25 +855,41 @@ var GFXTestState = (function () {
     this.camera.scale = 3;
     this.hud = new NullCamera();
     this.fps = [];
+    this.assets = game.assetManager.assets;
+    this.quote = {
+      x: 50,
+      y: 50,
+      a: new Animator(this.assets.character.quote.sprite)
+    };
   }
 
   _createClass(GFXTestState, [{
     key: "render",
     value: function render() {
+
       this.game.gfx.lookThrough(this.hud);
       this.fps.push(1000.0 / this.game.gametime.delta);
-      if (this.fps.length > 300) {
+      if (this.fps.length >= 300) {
         this.fps.shift();
       }
       this.game.gfx.drawText("FPS:", 0, 12, this.game.gfx.white);
       for (var i = 0; i < this.fps.length; i++) {
         this.game.gfx.fillRect(i, 212 - this.fps[i] * 200 / 60, 1, this.fps[i] * 200 / 60, this.game.gfx.red);
       }
+      for (var fps = 0; fps <= 60; fps += 10) {
+        this.game.gfx.fillRect(0, 212 - fps * 200 / 60, 305, 1, this.game.gfx.white);
+        this.game.gfx.drawText(fps, 300, 212 - fps * 200 / 60, this.game.gfx.white);
+      }
+
       this.game.gfx.lookThrough(this.camera);
       this.game.gfx.fillRect(-100, 10, 200, 10, this.game.gfx.blue);
       this.game.gfx.fillRect(-100, -50, 10, 60, this.game.gfx.green);
-      this.camera.rotate += this.game.gametime.delta / 1000.0;
-      this.camera.scale = Math.sin(this.game.gametime.now / 1000.0) + 2.0;
+      this.camera.rotate = Math.sin(this.game.gametime.now / 2000.0) / 3.0;
+      this.camera.scale = Math.sin(this.game.gametime.now / 1000.0) + 4.0;
+
+      this.quote.a.render(this.game.gfx, this.quote.x, this.quote.y);
+      this.quote.a.play("walk");
+      this.quote.a.run(this.game.gametime.delta);
     }
   }]);
 
@@ -630,15 +947,7 @@ function node() {
   };
 }
 
-var Vector = function Vector(x, y) {
-  _classCallCheck(this, Vector);
-
-  this.x = x;
-  this.y = y;
-};
-
 // let SKY_COLOR = new Color(128, 128, 255); // day time
-
 var SKY_COLOR = new Color(16, 0, 32); // night time
 
 var PlayState = (function () {
@@ -666,7 +975,7 @@ var PlayState = (function () {
   _createClass(PlayState, [{
     key: "render",
     value: function render() {
-      var _this7 = this;
+      var _this9 = this;
 
       this.game.gfx.lookThrough(this.camera);
       this.game.gfx.clearScreen(SKY_COLOR);
@@ -674,8 +983,8 @@ var PlayState = (function () {
       this.game.gfx.drawImage(this.assets.object.moon, 70, -70);
 
       this.componentTypes.image.nodes().forEach(function (ent) {
-        var dat = ent.get(_this7.componentTypes.image);
-        _this7.game.gfx.drawImage(dat.asset, Math.floor(dat.position.x), Math.floor(dat.position.y));
+        var dat = ent.get(_this9.componentTypes.image);
+        _this9.game.gfx.drawImage(dat.asset, Math.floor(dat.position.x), Math.floor(dat.position.y));
       });
     }
   }]);
@@ -683,9 +992,97 @@ var PlayState = (function () {
   return PlayState;
 })();
 
+// let SKY_COLOR = new Color(128, 128, 255); // day time
+
+var SKY_COLOR$1 = new Color(16, 0, 32); // night time
+
+var Snowflake = (function () {
+  function Snowflake(state) {
+    _classCallCheck(this, Snowflake);
+
+    this.speed = 40 * (1 + Math.random());
+    this.centerX = Math.random() * state.camera.width - state.camera.width / 2;
+    this.wave = {
+      phase: Math.random() * 2 * Math.PI,
+      period: Math.random() * 1.0 + 3.0,
+      amplitude: Math.random() * 20.0
+    };
+    this.x = this.centerX;
+    this.y = Math.random() * state.camera.height - state.camera.height / 2;
+    this.r = 0;
+    this.rs = Math.PI * (Math.random() + 0.2);
+    this.asset = state.assets.object.snowflake;
+  }
+
+  _createClass(Snowflake, [{
+    key: "update",
+    value: function update() {}
+  }, {
+    key: "render",
+    value: function render(state, gfx) {
+      var w = Math.sin(this.wave.phase + state.game.gametime.now / 1000.0 / this.wave.period * 2 * Math.PI);
+      this.x = w * this.wave.amplitude + this.centerX;
+      this.y += this.speed / 1000.0 * state.game.gametime.delta;
+      //this.r = w * Math.PI / 4;
+      this.r += this.rs / 1000.0 * state.game.gametime.delta;
+      if (this.y > state.camera.height / 2) {
+        this.y = -state.camera.height / 2 - 8;
+      }
+      gfx.drawImage(this.asset, this.x, this.y, this.r);
+    }
+  }]);
+
+  return Snowflake;
+})();
+
+var SnowState = (function () {
+  function SnowState(game) {
+    _classCallCheck(this, SnowState);
+
+    this.game = game;
+    this.camera = new Camera();
+    this.game.gfx.lookThrough(this.camera);
+    this.assets = game.assetManager.assets;
+    this.entities = [];
+
+    this.resize();
+  }
+
+  _createClass(SnowState, [{
+    key: "resize",
+    value: function resize() {
+      this.camera.scale = this.game.gfx.width / this.assets.object.snowhill.data.width;
+
+      this.entities.length = 0;
+      for (var i = 0; i < Math.floor(2000 / Math.pow(this.camera.scale, 2)); i++) {
+        this.entities.push(new Snowflake(this));
+      }
+    }
+  }, {
+    key: "render",
+    value: function render() {
+      var _this10 = this;
+
+      this.game.gfx.lookThrough(this.camera);
+      this.game.gfx.clearScreen(SKY_COLOR$1);
+
+      this.game.gfx.drawImage(this.assets.object.moon, 70, -70);
+
+      this.entities.forEach(function (ent) {
+        ent.update();
+        ent.render(_this10, _this10.game.gfx);
+      });
+
+      this.game.gfx.drawImage(this.assets.object.snowhill, -(this.camera.width / 2), -(this.camera.height * (3 / 4)));
+    }
+  }]);
+
+  return SnowState;
+})();
+
 var LoaderState = (function () {
   function LoaderState(game, resmgr, assetmgr) {
-    var _this8 = this;
+    var _this11 = this;
 
     _classCallCheck(this, LoaderState);
 
@@ -710,19 +1107,19 @@ var LoaderState = (function () {
     }).then(function (assetMap) {
       var promises = [];
 
-      var _loop = function _loop(asset) {
-        promises.push(_this8.resmgr.queue(assetMap[asset].url).then(function (resource) {
-          return _this8.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset);
+      var _loop2 = function _loop2(asset) {
+        promises.push(_this11.resmgr.queue(assetMap[asset].url).then(function (resource) {
+          return _this11.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset, assetMap[asset]);
         }));
       };
 
       for (var asset in assetMap) {
-        _loop(asset);
+        _loop2(asset);
       }
-      _this8.status = "Downloading assets...";
-      _this8.resmgr.flush();
+      _this11.status = "Downloading assets...";
+      _this11.resmgr.flush();
       Promise.all(promises).then(function () {
-        _this8.game.state = new GFXTestState(_this8.game);
+        _this11.game.state = new GFXTestState(_this11.game);
       });
     });
 
@@ -748,91 +1145,6 @@ var LoaderState = (function () {
   }]);
 
   return LoaderState;
-})();
-
-// let SKY_COLOR = new Color(128, 128, 255); // day time
-
-var SKY_COLOR$1 = new Color(16, 0, 32); // night time
-
-var SnowState = (function () {
-  function SnowState(game) {
-    _classCallCheck(this, SnowState);
-
-    this.game = game;
-    this.camera = new Camera();
-    this.camera.scale = 3;
-    this.game.gfx.lookThrough(this.camera);
-    this.assets = game.assetManager.assets;
-    this.componentTypes = {
-      physics: {
-        main: node(),
-        position: node(),
-        velocity: node()
-      },
-      position: node(),
-      image: node(),
-      snowflake: node()
-    };
-    this.entities = node();
-
-    this.resize();
-  }
-
-  _createClass(SnowState, [{
-    key: "resize",
-    value: function resize() {
-      this.componentTypes.snowflake.nodes().forEach(function (flake) {
-        flake.clear();
-      });
-      for (var i = 0; i < Math.floor(2000 / 9); i++) {
-        var dat = {
-          speed: 40 * (1 + Math.random()),
-          x: Math.random() * this.camera.width - this.camera.width / 2,
-          wave: {
-            phase: Math.random() * 2 * Math.PI,
-            period: Math.random() * 1.0 + 3.0,
-            amplitude: Math.random() * 20.0
-          }
-        };
-        var snowflake = this.componentTypes.snowflake.link(dat);
-        snowflake.set(this.entities);
-        snowflake.set(this.componentTypes.position, new Vector(dat.x, Math.random() * this.camera.height - this.camera.height / 2));
-        snowflake.set(this.componentTypes.image, {
-          asset: this.assets.object.snowflake,
-          position: snowflake.get(this.componentTypes.position)
-        });
-      }
-    }
-  }, {
-    key: "render",
-    value: function render() {
-      var _this9 = this;
-
-      this.game.gfx.lookThrough(this.camera);
-      this.game.gfx.clearScreen(SKY_COLOR$1);
-
-      this.game.gfx.drawImage(this.assets.object.moon, 70, -70);
-
-      this.componentTypes.image.nodes().forEach(function (ent) {
-        var dat = ent.get(_this9.componentTypes.image);
-        _this9.game.gfx.drawImage(dat.asset, Math.floor(dat.position.x), Math.floor(dat.position.y));
-      });
-
-      this.componentTypes.snowflake.nodes().forEach(function (flake) {
-        var pos = flake.get(_this9.componentTypes.position);
-        var dat = flake.get(_this9.componentTypes.snowflake);
-        pos.x = Math.sin(dat.wave.phase + _this9.game.gametime.now / 1000.0 / dat.wave.period * 2 * Math.PI) * dat.wave.amplitude + dat.x;
-        pos.y += dat.speed / 1000.0 * _this9.game.gametime.delta;
-        if (pos.y > _this9.camera.height / 2) {
-          pos.y = -_this9.camera.height / 2 - 8;
-        }
-      });
-
-      this.game.gfx.drawImage(this.assets.object.snowhill, -(this.camera.width / 2), -(this.camera.height * (3 / 4)));
-    }
-  }]);
-
-  return SnowState;
 })();
 
 var DebugOutput = (function () {
@@ -868,7 +1180,7 @@ var TEXT_COLOR = new Color(220, 220, 200);
 
 var Debug = (function () {
   function Debug(game) {
-    var _this10 = this;
+    var _this12 = this;
 
     _classCallCheck(this, Debug);
 
@@ -889,7 +1201,9 @@ var Debug = (function () {
 
     var stateMap = {
       snow: SnowState,
-      play: PlayState
+      play: PlayState,
+      "gfx test": GFXTestState,
+      gfxtest: GFXTestState
     };
 
     this.commands = {
@@ -902,7 +1216,7 @@ var Debug = (function () {
         } else {
           var i = parts.indexOf("to");
           if (i == undefined) {
-            _this10.logError("Invalid syntax. Usage: set <a> [to] <b> / set <a> <b> if a and b are each only one word");
+            _this12.logError("Invalid syntax. Usage: set <a> [to] <b> / set <a> <b> if a and b are each only one word");
             return;
           }
           a = parts.slice(0, i).join(" ");
@@ -911,37 +1225,37 @@ var Debug = (function () {
         switch (a) {
           case "state":
             if (!stateMap[b]) {
-              _this10.logError("No such state '" + b + "'");
+              _this12.logError("No such state '" + b + "'");
               return;
             }
-            _this10.game.state = new stateMap[b](_this10.game);
+            _this12.game.state = new stateMap[b](_this12.game);
             break;
           default:
-            _this10.logError("'" + a + "' not recognized");
+            _this12.logError("'" + a + "' not recognized");
             return;
         }
       },
       reload: function reload(parts) {
         if (parts[0] == "all") {
           if (parts[1] == "assets") {
-            _this10.log("reloading assets...");
-            _this10.game.assetManager.reloadAll();
+            _this12.log("reloading assets...");
+            _this12.game.assetManager.reloadAll();
           } else {
-            _this10.logError("'" + parts[1] + "' not recognized.");
+            _this12.logError("'" + parts[1] + "' not recognized.");
           }
         } else if (parts[0] == "asset") {
-          if (_this10.game.assetManager.directAssets[parts[1]]) {
-            _this10.log("reloading '" + parts[1] + "'");
-            _this10.game.assetManager.directAssets[parts[1]].reload();
+          if (_this12.game.assetManager.directAssets[parts[1]]) {
+            _this12.log("reloading '" + parts[1] + "'");
+            _this12.game.assetManager.directAssets[parts[1]].reload();
           } else {
-            _this10.logError("no such asset");
+            _this12.logError("no such asset");
           }
         } else {
-          if (_this10.game.assetManager.directAssets[parts[0]]) {
-            _this10.log("reloading '" + parts[0] + "'");
-            _this10.game.assetManager.directAssets[parts[0]].reload();
+          if (_this12.game.assetManager.directAssets[parts[0]]) {
+            _this12.log("reloading '" + parts[0] + "'");
+            _this12.game.assetManager.directAssets[parts[0]].reload();
           } else {
-            _this10.logError("'" + parts[0] + "' not recognized.");
+            _this12.logError("'" + parts[0] + "' not recognized.");
           }
         }
       }
@@ -1150,7 +1464,7 @@ var Debug = (function () {
         x += this.game.gfx.drawText(this.prompt.before, x, _y, TEXT_COLOR);
         var cw = this.game.gfx.textWidth(this.prompt.cursor);
         if (this.prompt.blinkState) {
-          this.game.gfx.fillRect({ x: x, y: _y - 10, w: cw, h: 12 }, TEXT_COLOR);
+          this.game.gfx.fillRect(x, _y - 10, cw, 12, TEXT_COLOR);
         }
         this.game.gfx.drawText(this.prompt.cursor, x, _y, this.prompt.blinkState ? this.game.gfx.black : TEXT_COLOR);
         x += cw;
@@ -1172,7 +1486,7 @@ var Debug = (function () {
 
 var InputManager = (function () {
   function InputManager(elem, debug) {
-    var _this11 = this;
+    var _this13 = this;
 
     _classCallCheck(this, InputManager);
 
@@ -1191,17 +1505,17 @@ var InputManager = (function () {
 
     document.addEventListener("keydown", function (e) {
       if (e.code == "Backquote") {
-        _this11.dbg.active = !_this11.dbg.active;
-      } else if (_this11.dbg.active) {
-        _this11.dbg.key(e);
-      } else if (_this11._keymap[e.code]) {
-        _this11._betweenInput[_this11._keymap[e.code]] = true;
+        _this13.dbg.active = !_this13.dbg.active;
+      } else if (_this13.dbg.active) {
+        _this13.dbg.key(e);
+      } else if (_this13._keymap[e.code]) {
+        _this13._betweenInput[_this13._keymap[e.code]] = true;
       }
     });
 
     document.addEventListener("keyup", function (e) {
-      if (!_this11.dbg.active && _this11._keymap[e.code]) {
-        _this11._betweenInput[_this11._keymap[e.code]] = false;
+      if (!_this13.dbg.active && _this13._keymap[e.code]) {
+        _this13._betweenInput[_this13._keymap[e.code]] = false;
       }
     });
   }
@@ -1264,6 +1578,7 @@ var Game = (function () {
     this.resourceManager = new ResourceManager(this.dbg.out("ResourceManager"));
     this.assetManager = new AssetManager(this.resourceManager, this.dbg.out("AssetManager"));
     this.assetManager.addLoader("image", this.gfx.imageLoader());
+    this.assetManager.addLoader("sprite", this.gfx.spriteLoader());
     this.assetManager.addLoader("sound", this.sfx.soundLoader());
     this.state = new LoaderState(this, this.resourceManager, this.assetManager);
 

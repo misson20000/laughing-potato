@@ -27,28 +27,25 @@ export class ResourceManager {
     this.dbg.log("Trying to load '" + job.url + "' with provider " + providerNum);
     
     this.loading = job.url;
-    this.providers[providerNum].provider.provide(job.url, this.dbg).then(
-      (resource) => {
-        return resource.blob();
-      }, (reason) => {
-        // failiure
-        this.dbg.log("failiure, trying next provider");
-        this._tryDL(job, providerNum+1);
-      }).then((resource) => {
-        // success
-        this.dbg.log("success");
-        let fin = new Resource(job.url, resource);
-        this.resources[job.url] = fin;
-        job.resolve(fin);
-        this._queue.shift();
-        if(this._queue.length > 0) {
-          this._tryDL(this._queue[0], 0);
-        } else {
-          this.dbg.log("finished queue");
-          this.status = "idle";
-          return;
-        }
-      });
+    this.providers[providerNum].provider.provide(job.url, this.dbg).then((resource) => {
+      // success
+      this.dbg.log("success");
+      let fin = new Resource(job.url, resource);
+      this.resources[job.url] = fin;
+      job.resolve(fin);
+      this._queue.shift();
+      if(this._queue.length > 0) {
+        this._tryDL(this._queue[0], 0);
+      } else {
+        this.dbg.log("finished queue");
+        this.status = "idle";
+        return;
+      }
+    }, (reason) => {
+      // failiure
+      this.dbg.log("failiure, trying next provider");
+      this._tryDL(job, providerNum+1);
+    });
   }
 
   flush() {
@@ -64,11 +61,15 @@ export class ResourceManager {
   }
   
   queue(resource) {
-    let self = this;
-    this.dbg.log("Queued " + resource);
-    return new Promise((resolve, reject) => {
-      self._queue.push({url: resource, resolve, reject});
-    });
+    if(!this.resources[resource]) {
+      let self = this;
+      this.dbg.log("Queued " + resource);
+      return new Promise((resolve, reject) => {
+        self._queue.push({url: resource, resolve, reject});
+      });
+    } else {
+      return new Promise((resolve, reject) => { resolve(this.resources[resource]); });
+    }
   }
 }
 
@@ -87,7 +88,7 @@ export class ResourceDownloader {
         dbg.log("got response");
         if(response.ok) {
           dbg.log("ok, resolving");
-          resolve(response);
+          resolve(response.blob());
         } else {
           dbg.log("failed, rejecting");
           reject(response.status + " " + response.statusText);
