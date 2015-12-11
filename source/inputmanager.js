@@ -1,3 +1,22 @@
+let kc = (e) => {
+  if(e.code) {
+    return e.code;
+  }
+  switch(e.which) {
+  case 37: return "ArrowLeft";
+  case 38: return "ArrowUp";
+  case 39: return "ArrowRight";
+  case 40: return "ArrowDown";
+  case 87: return "KeyW";
+  case 65: return "KeyA";
+  case 83: return "KeyS";
+  case 68: return "KeyD";
+  case 192: return "Backquote";
+  default:
+    return "Unknown"
+  }
+}
+
 export class InputManager {
   constructor(elem, debug) {
     this.dbg = debug;
@@ -7,25 +26,25 @@ export class InputManager {
     this._input = [];
     this._keys = [];
     this._keymap = {};
-
+    
     this.up    = new Key(this, ["ArrowUp"   , "KeyW"]);
     this.left  = new Key(this, ["ArrowLeft" , "KeyA"]);
     this.down  = new Key(this, ["ArrowDown" , "KeyS"]);
     this.right = new Key(this, ["ArrowRight", "KeyD"]);
     
     document.addEventListener("keydown", (e) => {
-      if(e.code == "Backquote") {
+      if(kc(e) == "Backquote") {
         this.dbg.active = !this.dbg.active;
       } else if(this.dbg.active) {
         this.dbg.key(e);
-      } else if(this._keymap[e.code]) {
-        this._betweenInput[this._keymap[e.code]] = true;
+      } else if(this._keymap[kc(e)]) {
+        this._betweenInput[this._keymap[kc(e)]] = true;
       }
     });
 
     document.addEventListener("keyup", (e) => {
-      if(!this.dbg.active && this._keymap[e.code]) {
-        this._betweenInput[this._keymap[e.code]] = false;
+      if(!this.dbg.active && this._keymap[kc(e)]) {
+        this._betweenInput[this._keymap[kc(e)]] = false;
       }
     });
   }

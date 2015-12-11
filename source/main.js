@@ -7,6 +7,7 @@ import {PlayState} from "./states/play.js";
 import {Debug} from "./debugging.js";
 import {AssetManager} from "./assetmanager.js";
 import {InputManager} from "./inputmanager.js";
+import {TmxLoader} from "./tmx.js";
 
 class Game {
   constructor(canvas) {
@@ -19,6 +20,7 @@ class Game {
     this.assetManager.addLoader("image", this.gfx.imageLoader());
     this.assetManager.addLoader("sprite", this.gfx.spriteLoader());
     this.assetManager.addLoader("sound", this.sfx.soundLoader());
+    this.assetManager.addLoader("tmx", TmxLoader);
     this.state = new LoaderState(this, this.resourceManager, this.assetManager);
 
     this.realtime = {};

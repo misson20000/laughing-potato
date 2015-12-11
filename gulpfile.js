@@ -15,14 +15,6 @@ var webserver = require('gulp-webserver');
 
 
 gulp.task('compile', function() {
-  //console.log("foobie");
-  //rollup.rollup({entry:'./source/main.js'})
-  //  .then(function(bundle) {
-  //    console.log("bletch");
-  //    fs.writeFile('./dist/main.js', babel.transform(bundle.generate().code, {modules:'ignore'}).code, cb);
-  //    console.log("huehuehue");
-  //  });
-
   return gulp.src('./source/main.js', {read: false})
     .pipe(rollup())
     .pipe(babel({

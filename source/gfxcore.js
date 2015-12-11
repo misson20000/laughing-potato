@@ -13,9 +13,26 @@ export class GFXCore {
     this.white = new Color(255, 255, 255);
     
     this.game = game;
+
+    this.img = {data: canvas};
+    
     this.ctx.save();
   }
 
+  static createBuffer(w, h) {
+    let c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    let gfx = new GFXCore(null, c);
+    gfx.width = w;
+    gfx.height = h;
+    return gfx;
+  }
+
+  getImage() {
+    return this.img;
+  }
+  
   resize() {
     let pw = this.width;
     let ph = this.height;
@@ -24,8 +41,10 @@ export class GFXCore {
     if(this.currentCamera) {
       this.lookThrough(this.currentCamera);
     }
-    if((pw != this.width || ph != this.height) && this.game.state && this.game.state.resize) {
-      this.game.state.resize();
+    if(this.game) {
+      if((pw != this.width || ph != this.height) && this.game.state && this.game.state.resize) {
+        this.game.state.resize();
+      }
     }
   }
 

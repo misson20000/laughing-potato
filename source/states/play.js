@@ -13,18 +13,6 @@ export class PlayState {
     this.camera = new Camera();
     this.camera.scale = 3;
     this.assets = game.assetManager.assets;
-    this.componentTypes = {
-      physics: {
-        main: wm.node(),
-        position: wm.node(),
-        velocity: wm.node()
-      },
-      position: wm.node(),
-      image: wm.node()
-    };
-    this.entities = wm.node();
-
-    this.game.sfx.playSound(this.assets.sfx.olrogue);
   }
   
   render() {
@@ -32,10 +20,5 @@ export class PlayState {
     this.game.gfx.clearScreen(SKY_COLOR);
 
     this.game.gfx.drawImage(this.assets.object.moon, 70, -70);
-    
-    this.componentTypes.image.nodes().forEach((ent) => {
-      let dat = ent.get(this.componentTypes.image);
-      this.game.gfx.drawImage(dat.asset, Math.floor(dat.position.x), Math.floor(dat.position.y));
-    });
   }
 }

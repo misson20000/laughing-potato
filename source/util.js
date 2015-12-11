@@ -53,10 +53,28 @@ export class JSONAssertions {
 export let blobToXML = (blob) => {
   return new Promise((resolve, reject) => {
     let xhr = new XMLHttpRequest();
-    xhr.onload = () => resolve(xhr.responseXML);
+    xhr.onload = () => {
+      if(xhr.responseXML != null) {
+        resolve(xhr.responseXML)
+      } else {
+        resolve(new FilePromiseReader(blob).text().then((txt) => {
+          return new DOMParser().parseFromString(txt, "application/xml");
+        })); // try another way
+      }
+    };
     xhr.onerror = reject;
     xhr.open("GET", URL.createObjectURL(blob));
     xhr.responseType = "document";
     xhr.send();
   });
+}
+
+export let b64toArrayBuffer = (base64) => {
+  let binary_string =  window.atob(base64);
+  let len = binary_string.length;
+  let bytes = new Uint8Array( len );
+  for (let i = 0; i < len; i++)        {
+    bytes[i] = binary_string.charCodeAt(i);
+  }
+  return bytes.buffer;
 }

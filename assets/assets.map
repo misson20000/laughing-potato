@@ -29,5 +29,10 @@
     "asset": "character.quote.sprite",
     "image": "character.quote.image",
     "type": "sprite"
+  },
+  {
+    "url": "test.tmx",
+    "asset": "map.test",
+    "type": "tmx"
   }
 ]

@@ -211,6 +211,35 @@ var JSONAssertions = (function () {
   return JSONAssertions;
 })();
 
+var blobToXML = function blobToXML(blob) {
+  return new Promise(function (resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function () {
+      if (xhr.responseXML != null) {
+        resolve(xhr.responseXML);
+      } else {
+        resolve(new FilePromiseReader(blob).text().then(function (txt) {
+          return new DOMParser().parseFromString(txt, "application/xml");
+        })); // try another way
+      }
+    };
+    xhr.onerror = reject;
+    xhr.open("GET", URL.createObjectURL(blob));
+    xhr.responseType = "document";
+    xhr.send();
+  });
+};
+
+var b64toArrayBuffer = function b64toArrayBuffer(base64) {
+  var binary_string = window.atob(base64);
+  var len = binary_string.length;
+  var bytes = new Uint8Array(len);
+  for (var i = 0; i < len; i++) {
+    bytes[i] = binary_string.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
+
 var GFXCore = (function () {
   function GFXCore(game, canvas) {
     _classCallCheck(this, GFXCore);
@@ -225,10 +254,18 @@ var GFXCore = (function () {
     this.white = new Color(255, 255, 255);
 
     this.game = game;
+
+    this.img = { data: canvas };
+
     this.ctx.save();
   }
 
   _createClass(GFXCore, [{
+    key: "getImage",
+    value: function getImage() {
+      return this.img;
+    }
+  }, {
     key: "resize",
     value: function resize() {
       var pw = this.width;
@@ -238,8 +275,10 @@ var GFXCore = (function () {
       if (this.currentCamera) {
         this.lookThrough(this.currentCamera);
       }
-      if ((pw != this.width || ph != this.height) && this.game.state && this.game.state.resize) {
-        this.game.state.resize();
+      if (this.game) {
+        if ((pw != this.width || ph != this.height) && this.game.state && this.game.state.resize) {
+          this.game.state.resize();
+        }
       }
     }
   }, {
@@ -443,6 +482,17 @@ var GFXCore = (function () {
           });
         } };
       return loader;
+    }
+  }], [{
+    key: "createBuffer",
+    value: function createBuffer(w, h) {
+      var c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      var gfx = new GFXCore(null, c);
+      gfx.width = w;
+      gfx.height = h;
+      return gfx;
     }
   }]);
 
@@ -853,39 +903,44 @@ var GFXTestState = (function () {
     this.game = game;
     this.camera = new Camera();
     this.camera.scale = 3;
+    this.camera.centerOnPoint(200, 200);
     this.hud = new NullCamera();
     this.fps = [];
     this.assets = game.assetManager.assets;
     this.quote = {
-      x: 50,
-      y: 50,
+      x: 48,
+      y: 48,
       a: new Animator(this.assets.character.quote.sprite)
     };
+    this.doTrial = true;
   }
 
   _createClass(GFXTestState, [{
     key: "render",
     value: function render() {
 
+      /* FPS Meter
       this.game.gfx.lookThrough(this.hud);
-      this.fps.push(1000.0 / this.game.gametime.delta);
-      if (this.fps.length >= 300) {
+      this.fps.push(1000.0/this.game.gametime.delta);
+      if(this.fps.length >= 300) {
         this.fps.shift();
       }
       this.game.gfx.drawText("FPS:", 0, 12, this.game.gfx.white);
-      for (var i = 0; i < this.fps.length; i++) {
-        this.game.gfx.fillRect(i, 212 - this.fps[i] * 200 / 60, 1, this.fps[i] * 200 / 60, this.game.gfx.red);
+      for(let i = 0; i < this.fps.length; i++) {
+        this.game.gfx.fillRect(i, 212-(this.fps[i]*200/60), 1, this.fps[i]*200/60, this.game.gfx.red);
       }
-      for (var fps = 0; fps <= 60; fps += 10) {
-        this.game.gfx.fillRect(0, 212 - fps * 200 / 60, 305, 1, this.game.gfx.white);
-        this.game.gfx.drawText(fps, 300, 212 - fps * 200 / 60, this.game.gfx.white);
-      }
+      for(let fps = 0; fps <= 60; fps+= 10) {
+        this.game.gfx.fillRect(0, 212-(fps*200/60), 305, 1, this.game.gfx.white);
+        this.game.gfx.drawText(fps, 300, 212-(fps*200/60), this.game.gfx.white);
+      }*/
 
       this.game.gfx.lookThrough(this.camera);
       this.game.gfx.fillRect(-100, 10, 200, 10, this.game.gfx.blue);
       this.game.gfx.fillRect(-100, -50, 10, 60, this.game.gfx.green);
       this.camera.rotate = Math.sin(this.game.gametime.now / 2000.0) / 3.0;
-      this.camera.scale = Math.sin(this.game.gametime.now / 1000.0) + 4.0;
+      this.camera.scale = Math.sin(this.game.gametime.now / 1000.0) + 2.0;
+
+      this.assets.map.test.data.drawMap(this.game.gfx);
 
       this.quote.a.render(this.game.gfx, this.quote.x, this.quote.y);
       this.quote.a.play("walk");
@@ -896,58 +951,8 @@ var GFXTestState = (function () {
   return GFXTestState;
 })();
 
-function pushB(a, b) {
-  this.push(b);
-}
-
-function node() {
-  var self = undefined;
-  var nodeMap = new Map();
-
-  var set = function set(node, value) {
-    if (value === undefined && !nodeMap.has(node) || nodeMap.get(node) !== value) {
-      nodeMap.set(node, value);
-      node.set(self, value);
-      return true;
-    }
-    return false;
-  };
-  var link = function link(value) {
-    var n = node();
-    self.set(n, value);
-    return n;
-  };
-  var remove = function remove(node) {
-    if (nodeMap.has(node)) {
-      nodeMap.delete(node);
-      node.remove(self);
-      return true;
-    }
-    return false;
-  };
-  var removeB = function removeB(a, b) {
-    return remove(b);
-  };
-  var clear = function clear() {
-    nodeMap.forEach(removeB);
-  };
-  var has = function has(node) {
-    return nodeMap.has(node);
-  };
-  var get = function get(node) {
-    return nodeMap.get(node);
-  };
-  var nodes = function nodes() {
-    var keys = [];
-    nodeMap.forEach(pushB, keys);
-    return keys;
-  };
-  return self = {
-    set: set, remove: remove, clear: clear, has: has, get: get, nodes: nodes, link: link, safeNodes: nodes
-  };
-}
-
 // let SKY_COLOR = new Color(128, 128, 255); // day time
+
 var SKY_COLOR = new Color(16, 0, 32); // night time
 
 var PlayState = (function () {
@@ -958,34 +963,15 @@ var PlayState = (function () {
     this.camera = new Camera();
     this.camera.scale = 3;
     this.assets = game.assetManager.assets;
-    this.componentTypes = {
-      physics: {
-        main: node(),
-        position: node(),
-        velocity: node()
-      },
-      position: node(),
-      image: node()
-    };
-    this.entities = node();
-
-    this.game.sfx.playSound(this.assets.sfx.olrogue);
   }
 
   _createClass(PlayState, [{
     key: "render",
     value: function render() {
-      var _this9 = this;
-
       this.game.gfx.lookThrough(this.camera);
       this.game.gfx.clearScreen(SKY_COLOR);
 
       this.game.gfx.drawImage(this.assets.object.moon, 70, -70);
-
-      this.componentTypes.image.nodes().forEach(function (ent) {
-        var dat = ent.get(_this9.componentTypes.image);
-        _this9.game.gfx.drawImage(dat.asset, Math.floor(dat.position.x), Math.floor(dat.position.y));
-      });
     }
   }]);
 
@@ -1061,7 +1047,7 @@ var SnowState = (function () {
   }, {
     key: "render",
     value: function render() {
-      var _this10 = this;
+      var _this9 = this;
 
       this.game.gfx.lookThrough(this.camera);
       this.game.gfx.clearScreen(SKY_COLOR$1);
@@ -1070,7 +1056,7 @@ var SnowState = (function () {
 
       this.entities.forEach(function (ent) {
         ent.update();
-        ent.render(_this10, _this10.game.gfx);
+        ent.render(_this9, _this9.game.gfx);
       });
 
       this.game.gfx.drawImage(this.assets.object.snowhill, -(this.camera.width / 2), -(this.camera.height * (3 / 4)));
@@ -1082,7 +1068,7 @@ var SnowState = (function () {
 
 var LoaderState = (function () {
   function LoaderState(game, resmgr, assetmgr) {
-    var _this11 = this;
+    var _this10 = this;
 
     _classCallCheck(this, LoaderState);
 
@@ -1108,18 +1094,18 @@ var LoaderState = (function () {
       var promises = [];
 
       var _loop2 = function _loop2(asset) {
-        promises.push(_this11.resmgr.queue(assetMap[asset].url).then(function (resource) {
-          return _this11.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset, assetMap[asset]);
+        promises.push(_this10.resmgr.queue(assetMap[asset].url).then(function (resource) {
+          return _this10.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset, assetMap[asset]);
         }));
       };
 
       for (var asset in assetMap) {
         _loop2(asset);
       }
-      _this11.status = "Downloading assets...";
-      _this11.resmgr.flush();
+      _this10.status = "Downloading assets...";
+      _this10.resmgr.flush();
       Promise.all(promises).then(function () {
-        _this11.game.state = new GFXTestState(_this11.game);
+        _this10.game.state = new GFXTestState(_this10.game);
       });
     });
 
@@ -1180,7 +1166,7 @@ var TEXT_COLOR = new Color(220, 220, 200);
 
 var Debug = (function () {
   function Debug(game) {
-    var _this12 = this;
+    var _this11 = this;
 
     _classCallCheck(this, Debug);
 
@@ -1216,7 +1202,7 @@ var Debug = (function () {
         } else {
           var i = parts.indexOf("to");
           if (i == undefined) {
-            _this12.logError("Invalid syntax. Usage: set <a> [to] <b> / set <a> <b> if a and b are each only one word");
+            _this11.logError("Invalid syntax. Usage: set <a> [to] <b> / set <a> <b> if a and b are each only one word");
             return;
           }
           a = parts.slice(0, i).join(" ");
@@ -1225,37 +1211,37 @@ var Debug = (function () {
         switch (a) {
           case "state":
             if (!stateMap[b]) {
-              _this12.logError("No such state '" + b + "'");
+              _this11.logError("No such state '" + b + "'");
               return;
             }
-            _this12.game.state = new stateMap[b](_this12.game);
+            _this11.game.state = new stateMap[b](_this11.game);
             break;
           default:
-            _this12.logError("'" + a + "' not recognized");
+            _this11.logError("'" + a + "' not recognized");
             return;
         }
       },
       reload: function reload(parts) {
         if (parts[0] == "all") {
           if (parts[1] == "assets") {
-            _this12.log("reloading assets...");
-            _this12.game.assetManager.reloadAll();
+            _this11.log("reloading assets...");
+            _this11.game.assetManager.reloadAll();
           } else {
-            _this12.logError("'" + parts[1] + "' not recognized.");
+            _this11.logError("'" + parts[1] + "' not recognized.");
           }
         } else if (parts[0] == "asset") {
-          if (_this12.game.assetManager.directAssets[parts[1]]) {
-            _this12.log("reloading '" + parts[1] + "'");
-            _this12.game.assetManager.directAssets[parts[1]].reload();
+          if (_this11.game.assetManager.directAssets[parts[1]]) {
+            _this11.log("reloading '" + parts[1] + "'");
+            _this11.game.assetManager.directAssets[parts[1]].reload();
           } else {
-            _this12.logError("no such asset");
+            _this11.logError("no such asset");
           }
         } else {
-          if (_this12.game.assetManager.directAssets[parts[0]]) {
-            _this12.log("reloading '" + parts[0] + "'");
-            _this12.game.assetManager.directAssets[parts[0]].reload();
+          if (_this11.game.assetManager.directAssets[parts[0]]) {
+            _this11.log("reloading '" + parts[0] + "'");
+            _this11.game.assetManager.directAssets[parts[0]].reload();
           } else {
-            _this12.logError("'" + parts[0] + "' not recognized.");
+            _this11.logError("'" + parts[0] + "' not recognized.");
           }
         }
       }
@@ -1484,9 +1470,37 @@ var Debug = (function () {
   return Debug;
 })();
 
+var kc = function kc(e) {
+  if (e.code) {
+    return e.code;
+  }
+  switch (e.which) {
+    case 37:
+      return "ArrowLeft";
+    case 38:
+      return "ArrowUp";
+    case 39:
+      return "ArrowRight";
+    case 40:
+      return "ArrowDown";
+    case 87:
+      return "KeyW";
+    case 65:
+      return "KeyA";
+    case 83:
+      return "KeyS";
+    case 68:
+      return "KeyD";
+    case 192:
+      return "Backquote";
+    default:
+      return "Unknown";
+  }
+};
+
 var InputManager = (function () {
   function InputManager(elem, debug) {
-    var _this13 = this;
+    var _this12 = this;
 
     _classCallCheck(this, InputManager);
 
@@ -1504,18 +1518,18 @@ var InputManager = (function () {
     this.right = new Key(this, ["ArrowRight", "KeyD"]);
 
     document.addEventListener("keydown", function (e) {
-      if (e.code == "Backquote") {
-        _this13.dbg.active = !_this13.dbg.active;
-      } else if (_this13.dbg.active) {
-        _this13.dbg.key(e);
-      } else if (_this13._keymap[e.code]) {
-        _this13._betweenInput[_this13._keymap[e.code]] = true;
+      if (kc(e) == "Backquote") {
+        _this12.dbg.active = !_this12.dbg.active;
+      } else if (_this12.dbg.active) {
+        _this12.dbg.key(e);
+      } else if (_this12._keymap[kc(e)]) {
+        _this12._betweenInput[_this12._keymap[kc(e)]] = true;
       }
     });
 
     document.addEventListener("keyup", function (e) {
-      if (!_this13.dbg.active && _this13._keymap[e.code]) {
-        _this13._betweenInput[_this13._keymap[e.code]] = false;
+      if (!_this12.dbg.active && _this12._keymap[kc(e)]) {
+        _this12._betweenInput[_this12._keymap[kc(e)]] = false;
       }
     });
   }
@@ -1567,6 +1581,336 @@ var Key = (function () {
   return Key;
 })();
 
+var Tmx = (function () {
+  function Tmx(doc, assetMgr) {
+    var _this13 = this;
+
+    _classCallCheck(this, Tmx);
+
+    this.assetMgr = assetMgr;
+    this.promises = [];
+    var root = this.root = doc.documentElement;
+    if (root.tagName != "map") {
+      throw "TMX root tag name is not 'map'";
+    }
+    if (root.getAttribute("version") != "1.0") {
+      throw "Unsupported TMX version '" + root.getAttribute("version") + "'";
+    }
+    if (root.getAttribute("orientation") != "orthogonal") {
+      throw "Unsupported TMX orientation '" + root.getAttribute("orientation") + "'";
+    }
+    this.width = parseInt(root.getAttribute("width"));
+    this.height = parseInt(root.getAttribute("height"));
+    this.tilewidth = parseInt(root.getAttribute("tilewidth"));
+    this.tileheight = parseInt(root.getAttribute("tileheight"));
+    // ignore background color and render order
+
+    this.tilesets = [];
+    this.properties = {};
+    this.tileLayers = [];
+    this.objectLayers = [];
+
+    var map = this;
+
+    var parseFunctions = {
+      tileset: function tileset(e) {
+        var firstgid = parseInt(e.getAttribute("firstgid"));
+        if (e.hasAttribute("source")) {
+          map.promises.push(assetMgr.resourceManager.queue(e.getAttribute("source")).then(function (res) {
+            return blobToXML(res.blob);
+          }).then(function (xml) {
+            map.tilesets.push(new TmxTileset(xml.documentElement, firstgid, _this13));
+          }));
+        } else {
+          map.tilesets.push(new TmxTileset(e, firstgid, _this13));
+        }
+      },
+      layer: function layer(e) {
+        map.tileLayers.push(new TmxLayer(e, _this13));
+      },
+      objectgroup: function objectgroup(e) {
+        map.objectLayers.push(new TmxObjectLayer(e));
+      },
+      properties: function properties(e) {
+        map.properties = new TmxProperties(e);
+      }
+    };
+
+    for (var i = 0; i < root.children.length; i++) {
+      var child = root.children[i];
+      if (!parseFunctions[child.tagName]) {
+        throw "Invalid element '<" + child.tagName + ">' under <map>";
+      }
+      parseFunctions[child.tagName](child);
+    };
+  }
+
+  _createClass(Tmx, [{
+    key: "drawTile",
+    value: function drawTile(gfx, tile, x, y) {
+      var tsi = 0;
+      for (var i = 0; i < this.tilesets.length; i++) {
+        if (this.tilesets[i].firstgid <= tile) {
+          tsi = i;
+        } else {
+          break;
+        }
+      }
+
+      var ts = this.tilesets[tsi];
+
+      gfx.drawSubImage(ts.image, x, y, ts.getX(tile - ts.firstgid), ts.getY(tile - ts.firstgid), ts.tilewidth, ts.tileheight);
+    }
+  }, {
+    key: "drawMap",
+    value: function drawMap(gfx) {
+      for (var l = 0; l < this.tileLayers.length; l++) {
+        gfx.drawImage(this.tileLayers[l].image, 0, 0);
+      }
+    }
+  }, {
+    key: "drawMapDirectly",
+    value: function drawMapDirectly(gfx) {
+      for (var l = 0; l < this.tileLayers.length; l++) {
+        this.tileLayers[l].render(gfx);
+      }
+    }
+  }, {
+    key: "hasAssets",
+    value: function hasAssets() {
+      this.tileLayers.forEach(function (l) {
+        l.bake();
+      });
+    }
+  }]);
+
+  return Tmx;
+})();
+
+var TmxTileset = (function () {
+  function TmxTileset(e, firstgid, map) {
+    var _this14 = this;
+
+    _classCallCheck(this, TmxTileset);
+
+    this.firstgid = firstgid;
+    if (!e.hasAttribute("name")) {
+      throw "Tileset has no name";
+    }
+    if (!e.hasAttribute("tilewidth")) {
+      throw "Tileset has no tile width attribute";
+    }
+    if (!e.hasAttribute("tileheight")) {
+      throw "Tileset has no tile height attribute";
+    }
+    if (!e.hasAttribute("tilecount")) {
+      throw "Tileset has no tile count attribute";
+    }
+
+    var spacing = 0,
+        margin = 0;
+    if (e.hasAttribute("spacing")) {
+      this.spacing = parseInt(e.getAttribute("spacing"));
+    }
+    if (e.hasAttribute("margin")) {
+      this.margin = parseInt(e.getAttribute("margin"));
+    }
+
+    this.name = e.getAttribute("name");
+    this.tilewidth = parseInt(e.getAttribute("tilewidth"));
+    this.tileheight = parseInt(e.getAttribute("tileheight"));
+    this.tilecount = parseInt(e.getAttribute("tilecount"));
+
+    this.properties = {};
+
+    for (var i = 0; i < e.children.length; i++) {
+      var child = e.children[i];
+      if (child.tagName == "properties") {
+        this.properties = new TmxProperties(child);
+      } else if (child.tagName == "image") {//ignore
+      } else {
+          throw "Unsupported tileset child '< " + child.tagName + ">'";
+        }
+    }
+
+    if (!this.properties.asset) {
+      throw "Tileset nas no asset property";
+    }
+    console.log("adding promise for '" + this.properties.asset + "'");
+    map.promises.push(map.assetMgr.promiseAsset(this.properties.asset).then(function (asset) {
+      _this14.image = asset;
+    }));
+  }
+
+  _createClass(TmxTileset, [{
+    key: "getX",
+    value: function getX(tile) {
+      return tile * this.tilewidth % this.image.data.width;
+    }
+  }, {
+    key: "getY",
+    value: function getY(tile) {
+      return Math.floor(tile / (this.image.data.width / this.tilewidth)) * this.tileheight;
+    }
+  }]);
+
+  return TmxTileset;
+})();
+
+var TmxLayer = (function () {
+  function TmxLayer(e, map) {
+    _classCallCheck(this, TmxLayer);
+
+    this.map = map;
+
+    if (!e.hasAttribute("name")) {
+      throw "Layer has no name attribute";
+    }
+
+    this.properties = {};
+
+    for (var i = 0; i < e.children.length; i++) {
+      var c = e.children[i];
+      if (c.tagName == "properties") {
+        this.properties = new TmxProperties(c);
+      } else if (c.tagName == "data") {
+        if (!c.hasAttribute("encoding") || c.getAttribute("encoding") != "base64") {
+          throw "Unsupported encoding (try uncompressed base64)";
+        }
+        if (c.hasAttribute("compression")) {
+          throw "Unsupported compression (try uncompressed base64)";
+        }
+
+        var ab = b64toArrayBuffer(c.innerHTML);
+        this.tiles = new Uint32Array(ab);
+      } else {
+        throw "Invalid tag '<" + c.tagName + ">' under <layer>";
+      }
+    }
+  }
+
+  _createClass(TmxLayer, [{
+    key: "bake",
+    value: function bake() {
+      var buffer = GFXCore.createBuffer(this.map.width * this.map.tilewidth, this.map.height * this.map.tileheight);
+      this.render(buffer);
+      this.image = buffer.getImage();
+    }
+  }, {
+    key: "render",
+    value: function render(gfx) {
+      var i = 0;
+      var d = this.tiles;
+      for (var y = 0; y < this.map.height; y++) {
+        for (var x = 0; x < this.map.width; x++) {
+          if (d[i] != 0) {
+            this.map.drawTile(gfx, d[i], x * this.map.tilewidth, y * this.map.tileheight);
+          }
+          i++;
+        }
+      }
+    }
+  }]);
+
+  return TmxLayer;
+})();
+
+var TmxObjectLayer = function TmxObjectLayer(e) {
+  _classCallCheck(this, TmxObjectLayer);
+
+  if (!e.hasAttribute("name")) {
+    throw "object layer has no name";
+  }
+  this.name = e.getAttribute("name");
+  this.properties = {};
+  this.objects = [];
+  for (var i = 0; i < e.children.length; i++) {
+    var c = e.children[i];
+    if (c.tagName == "properties") {
+      this.properties = new TmxProperties(c);
+    } else if (c.tagName == "object") {
+      this.objects.push(new TmxObject(c));
+    } else {
+      throw "invalid tag '<" + c.tagName + ">' in object layer";
+    }
+  }
+};
+
+var TmxObject = function TmxObject(e) {
+  _classCallCheck(this, TmxObject);
+
+  if (!e.hasAttribute("id")) {
+    throw "object with no id";
+  }
+  if (!e.hasAttribute("type")) {
+    throw "object with no type";
+  }
+  if (!e.hasAttribute("x")) {
+    throw "object with no x";
+  }
+  if (!e.hasAttribute("y")) {
+    throw "object with no y";
+  }
+  if (!e.hasAttribute("width")) {
+    throw "object has no width";
+  }
+  if (!e.hasAttribute("height")) {
+    throw "object has no height";
+  }
+  this.id = parseInt(e.getAttribute("id"));
+  this.type = e.getAttribute("type");
+  this.x = parseInt(e.getAttribute("x"));
+  this.y = parseInt(e.getAttribute("y"));
+  this.width = parseInt(e.getAttribute("width"));
+  this.height = parseInt(e.getAttribute("height"));
+  this.properties = {};
+
+  for (var i = 0; i < e.children.length; i++) {
+    var c = e.children[i];
+    if (c.tagName == "properties") {
+      this.properties = new TmxProperties(c);
+    } else {
+      throw "object shape '" + c.tagName + "' is unsupported";
+    }
+  }
+};
+
+var TmxProperties = function TmxProperties(e) {
+  _classCallCheck(this, TmxProperties);
+
+  if (e.tagName != "properties") {
+    throw "Element is not 'properties'";
+  }
+  for (var i = 0; i < e.children.length; i++) {
+    var p = e.children[i];
+    if (p.tagName != "property") {
+      throw "Non-<property> tag under <properties>";
+    }
+    if (!p.hasAttribute("name")) {
+      throw "<property> tag has no 'name' attribute";
+    }
+    var v = undefined;
+    if (p.hasAttribute("value")) {
+      v = p.getAttribute("value");
+    } else {
+      v = p.innerHTML;
+    }
+    this[p.getAttribute("name")] = v;
+  };
+};
+
+var TmxLoader = {
+  load: function load(res, assetMgr) {
+    return blobToXML(res.blob).then(function (doc) {
+      var tmx = new Tmx(doc, assetMgr);
+      return Promise.all(tmx.promises).then(function () {
+        tmx.hasAssets();
+        return tmx;
+      });
+    });
+  }
+};
+
 var Game = (function () {
   function Game(canvas) {
     _classCallCheck(this, Game);
@@ -1580,6 +1924,7 @@ var Game = (function () {
     this.assetManager.addLoader("image", this.gfx.imageLoader());
     this.assetManager.addLoader("sprite", this.gfx.spriteLoader());
     this.assetManager.addLoader("sound", this.sfx.soundLoader());
+    this.assetManager.addLoader("tmx", TmxLoader);
     this.state = new LoaderState(this, this.resourceManager, this.assetManager);
 
     this.realtime = {};
