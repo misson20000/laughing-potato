@@ -25,11 +25,16 @@ export class LoaderState {
     }).then((assetMap) => {
       let promises = [];
       for(let asset in assetMap) {
-        promises.push(
-          this.resmgr.queue(assetMap[asset].url).then((resource) => {
-            return this.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset, assetMap[asset]);
-          })
-        );
+        let a = assetMap[asset];
+        if(this.assetmgr.loaders[a.type].streaming) {
+          promises.push(this.assetmgr.load(a.url, a.type, a.asset, a, true));
+        } else {
+          promises.push(
+            this.resmgr.queue(a.url).then((resource) => {
+              return this.assetmgr.load(resource, a.type, a.asset, a);
+            })
+          );
+        }
       }
       this.status = "Downloading assets...";
       this.resmgr.flush();

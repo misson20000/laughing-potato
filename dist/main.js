@@ -58,6 +58,8 @@ var AssetManager = (function () {
     value: function load(resource, via, target, parameters) {
       var _this2 = this;
 
+      var streaming = arguments.length <= 4 || arguments[4] === undefined ? false : arguments[4];
+
       var o = this.assets;
       var a = target.split(".");
       var i = 0;
@@ -71,7 +73,7 @@ var AssetManager = (function () {
         o = o[a[i]];
       }
       this.dbg.log("set " + a[i]);
-      var asset = new Asset(null, resource.url, this.loaders[via]);
+      var asset = new Asset(null, streaming ? resource : resource.url, this.loaders[via]);
       o[a[i]] = asset;
       this.directAssets[target] = asset;
       this.assetList.push(asset);
@@ -580,6 +582,14 @@ var Sound = function Sound(src, gain) {
   this.gain = gain;
 };
 
+var Music = function Music(aud, src, gain) {
+  _classCallCheck(this, Music);
+
+  this.aud = aud;
+  this.src = src;
+  this.gain = gain;
+};
+
 var SFXCore = (function () {
   function SFXCore(game) {
     _classCallCheck(this, SFXCore);
@@ -601,6 +611,17 @@ var SFXCore = (function () {
       return loader;
     }
   }, {
+    key: "musicLoader",
+    value: function musicLoader() {
+      var loader = { load: function load(url, mgr, opt) {
+          return new Promise(function (resolve, reject) {
+            resolve(url);
+          });
+        }, streaming: true };
+
+      return loader;
+    }
+  }, {
     key: "playSound",
     value: function playSound(ast) {
       var vol = arguments.length <= 1 || arguments[1] === undefined ? 1.0 : arguments[1];
@@ -613,6 +634,23 @@ var SFXCore = (function () {
       gain.connect(this.ctx.destination);
       src.start();
       return new Sound(src, gain);
+    }
+  }, {
+    key: "playMusic",
+    value: function playMusic(ast) {
+      var vol = arguments.length <= 1 || arguments[1] === undefined ? 1.0 : arguments[1];
+      var loop = arguments.length <= 2 || arguments[2] === undefined ? true : arguments[2];
+
+      var aud = new Audio();
+      aud.src = ast.data;
+      aud.autoplay = true;
+      aud.loop = loop;
+      var src = this.ctx.createMediaElementSource(aud);
+      var gain = this.ctx.createGain();
+      src.connect(gain);
+      gain.gain.value = vol;
+      gain.connect(this.ctx.destination);
+      return new Music(aud, src, gain);
     }
   }]);
 
@@ -837,6 +875,7 @@ var PlayState = (function () {
       a: new Animator(this.assets.character.quote.sprite)
     };
     this.map = this.assets.map.test;
+    this.bgm = game.sfx.playMusic(this.assets.music.vs_hero);
   }
 
   _createClass(PlayState, [{
@@ -884,9 +923,14 @@ var LoaderState = (function () {
       var promises = [];
 
       var _loop2 = function _loop2(asset) {
-        promises.push(_this9.resmgr.queue(assetMap[asset].url).then(function (resource) {
-          return _this9.assetmgr.load(resource, assetMap[asset].type, assetMap[asset].asset, assetMap[asset]);
-        }));
+        var a = assetMap[asset];
+        if (_this9.assetmgr.loaders[a.type].streaming) {
+          promises.push(_this9.assetmgr.load(a.url, a.type, a.asset, a, true));
+        } else {
+          promises.push(_this9.resmgr.queue(a.url).then(function (resource) {
+            return _this9.assetmgr.load(resource, a.type, a.asset, a);
+          }));
+        }
       };
 
       for (var asset in assetMap) {
@@ -1711,6 +1755,7 @@ var Game = (function () {
     this.assetManager.addLoader("image", this.gfx.imageLoader());
     this.assetManager.addLoader("sprite", this.gfx.spriteLoader());
     this.assetManager.addLoader("sound", this.sfx.soundLoader());
+    this.assetManager.addLoader("music", this.sfx.musicLoader());
     this.assetManager.addLoader("tmx", TmxLoader);
     this.state = new LoaderState(this, this.resourceManager, this.assetManager);
 

@@ -19,6 +19,7 @@ export class PlayState {
       a: new Animator(this.assets.character.quote.sprite)
     };
     this.map = this.assets.map.test;
+    this.bgm = game.sfx.playMusic(this.assets.music.vs_hero);
   }
   
   render() {

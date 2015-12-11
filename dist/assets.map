@@ -34,5 +34,10 @@
     "url": "test.tmx",
     "asset": "map.test",
     "type": "tmx"
+  },
+  {
+    "url": "vs_hero.ogg",
+    "asset": "music.vs_hero",
+    "type": "music"
   }
 ]
