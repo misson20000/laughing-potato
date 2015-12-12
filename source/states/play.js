@@ -1,7 +1,7 @@
 import * as wm from "../whether-manager/whether-manager.js";
 
 import {Camera} from "../camera.js";
-import {Color} from "../gfxcore.js";
+import {Color, Animator} from "../gfxcore.js";
 import {Vector} from "../vector.js";
 
 // let SKY_COLOR = new Color(128, 128, 255); // day time
