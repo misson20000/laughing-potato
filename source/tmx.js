@@ -61,17 +61,28 @@ export class Tmx {
     };
   }
 
-  drawTile(gfx, tile, x, y) {
+  getTileset(gid) {
+    if(gid == 0) { return null; }
     let tsi = 0;
     for(let i = 0; i < this.tilesets.length; i++) {
-      if(this.tilesets[i].firstgid <= tile) {
+      if(this.tilesets[i].firstgid <= gid) {
         tsi = i;
       } else { break; }
     }
 
-    let ts = this.tilesets[tsi];
-    
-    gfx.drawSubImage(ts.image, x, y, ts.getX(tile-ts.firstgid), ts.getY(tile-ts.firstgid), ts.tilewidth, ts.tileheight);
+    return this.tilesets[tsi];
+  }
+  
+  getTileFromGID(gid) {
+    if(gid == 0) { return null; }
+    let ts = this.getTileset(gid);
+    return ts.getTile(gid-ts.firstgid);
+  }
+  
+  drawTile(gfx, gid, x, y) {
+    let ts = this.getTileset(gid);
+    let t = ts.getTile(gid-ts.firstgid);
+    gfx.drawSubImage(ts.image, x, y, t.x, t.y, ts.tilewidth, ts.tileheight);
   }
 
   drawMap(gfx) {
@@ -109,12 +120,14 @@ class TmxTileset {
       throw "Tileset has no tile count attribute";
     }
     
-    let spacing = 0, margin = 0;
+    this.spacing = 0;
+    this.margin = 0;
     if(e.hasAttribute("spacing")) {
       this.spacing = parseInt(e.getAttribute("spacing"));
     }
     if(e.hasAttribute("margin")) {
       this.margin = parseInt(e.getAttribute("margin"));
+      throw "margin is unsupported";
     }
     
     this.name = e.getAttribute("name");
@@ -123,32 +136,71 @@ class TmxTileset {
     this.tilecount = parseInt(e.getAttribute("tilecount"));
 
     this.properties = {};
+    let tileData = [];
     
     for(let i = 0; i < e.children.length; i++) {
       let child = e.children[i];
       if(child.tagName == "properties") {
         this.properties = new TmxProperties(child);
       } else if(child.tagName == "image") { //ignore
-      } else{
-        throw "Unsupported tileset child '< " + child.tagName + ">'";
+      } else if(child.tagName == "tile") {
+        let tile = new TmxTileData(child, this);
+        tileData[tile.id] = tile;
+      } else {
+        throw "Unsupported tileset child '<" + child.tagName + ">'";
       }
     }
 
+    this.tiles = [];    
+    
     if(!this.properties.asset) {
       throw "Tileset nas no asset property";
     }
     console.log("adding promise for '" + this.properties.asset + "'");
     map.promises.push(map.assetMgr.promiseAsset(this.properties.asset).then((asset) => {
       this.image = asset;
+      let i = 0;
+      for(let y = 0; y < this.image.data.height; y+= this.tileheight + this.spacing) {
+        for(let x = 0; x < this.image.data.width; x+= this.tilewidth + this.spacing) {
+          if(tileData[i]) {
+            this.tiles[i] = new TmxTile(x, y, this, tileData[i]);
+          } else {
+            this.tiles[i] = new TmxTile(x, y, this);
+          }
+          i++;
+        }
+      }
     }));
   }
 
-  getX(tile) {
-    return (tile * this.tilewidth) % this.image.data.width;
-  }
+  getTile(t) {
+    return this.tiles[t];
+  }  
+}
 
-  getY(tile) {
-    return Math.floor(tile/(this.image.data.width/this.tilewidth)) * this.tileheight;
+class TmxTileData {
+  constructor(e, ts) {
+    if(!e.hasAttribute("id")) {
+      throw "tile tag with no id";
+    }
+    this.id = e.getAttribute("id");
+    for(let i = 0; i < e.children.length; i++) {
+      let c = e.children[i];
+      if(c.tagName == "properties") {
+        this.properties = new TmxProperties(c);
+      } else {
+        throw c.tagName
+      }
+    }
+  }
+}
+
+class TmxTile {
+  constructor(x, y, ts, data) {
+    this.x = x;
+    this.y = y;
+    this.ts = ts;
+    this.properties = data ? data.properties : {};
   }
 }
 
@@ -199,6 +251,10 @@ class TmxLayer {
         i++;
       }
     }
+  }
+
+  getTile(x, y) {
+    return this.map.getTileFromGID(this.tiles[x+(y*this.map.width)]);
   }
 }
 
