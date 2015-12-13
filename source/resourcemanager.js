@@ -50,6 +50,10 @@ export class ResourceManager {
 
   flush() {
     this.status = "loading";
+    if(this._queue.length == 0) {
+      this.status = "idle";
+      return;
+    }
     this._tryDL(this._queue[0], 0);
   }
 

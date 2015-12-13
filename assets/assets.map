@@ -1,43 +1,27 @@
 [
   {
-    "url": "devtile.png",
-    "asset": "tiles.dev",
-    "type": "image"
-  },
-  {
-    "url": "snowflake.png",
-    "asset": "object.snowflake",
-    "type": "image"
-  },
-  {
-    "url": "snowhill.png",
-    "asset": "object.snowhill",
-    "type": "image"
-  },
-  {
-    "url": "moon.png",
-    "asset": "object.moon",
-    "type": "image"
-  },
-  {
-    "url": "quote.png",
-    "asset": "character.quote.image",
-    "type": "image"
-  },
-  {
-    "url": "sprites/player.json",
-    "asset": "character.quote.sprite",
-    "image": "character.quote.image",
-    "type": "sprite"
-  },
-  {
-    "url": "test.tmx",
-    "asset": "map.test",
-    "type": "tmx"
-  },
-  {
-    "url": "vs_hero.ogg",
-    "asset": "music.vs_hero",
+    "url": "tension.ogg",
+    "asset": "music.bgm",
     "type": "music"
+  },
+  {
+    "url": "tension_slow.ogg",
+    "asset": "music.bgmSlow",
+    "type": "music"
+  },
+  {
+    "url": "battle.ogg",
+    "asset": "music.orig",
+    "type": "music"
+  },
+  {
+    "url": "score.wav",
+    "asset": "sfx.score",
+    "type": "sound"
+  },
+  {
+    "url": "crash.wav",
+    "asset": "sfx.crash",
+    "type": "sound"
   }
 ]

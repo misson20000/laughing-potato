@@ -14,6 +14,11 @@ export class Music {
     this.src = src;
     this.gain = gain;
   }
+
+  setSpeed(speed) {
+    this.aud.playbackRate = speed;
+    console.log("bgm speed " + speed);
+  }
 }
 
 export class SFXCore {
@@ -24,7 +29,9 @@ export class SFXCore {
   soundLoader() {
     let loader = {load: (res, mgr, opt) => {
       return new FilePromiseReader(res.blob).arrayBuffer().then((ab) => {
-        return this.ctx.decodeAudioData(ab);
+        return new Promise((resolve, reject) => {
+          this.ctx.decodeAudioData(ab, resolve);
+        });
       });
     }};
 
@@ -57,6 +64,9 @@ export class SFXCore {
     aud.src = ast.data;
     aud.autoplay = true;
     aud.loop = loop;
+    aud.preservesPitch = false;
+    aud.mozPreservesPitch = false;
+    aud.webkitPreservesPitch = false;
     let src = this.ctx.createMediaElementSource(aud);
     let gain = this.ctx.createGain();
     src.connect(gain);

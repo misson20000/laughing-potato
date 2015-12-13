@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="32" tileheight="32" nextobjectid="1">
+ <tileset firstgid="1" name="rocky_grass" tilewidth="32" tileheight="32" spacing="8" tilecount="1">
+  <properties>
+   <property name="asset" value="tiles.red.grass"/>
+  </properties>
+  <image source="rocky_grass.png" width="32" height="32"/>
+ </tileset>
+ <tileset firstgid="2" name="rocks" tilewidth="32" tileheight="32" spacing="8" tilecount="1">
+  <properties>
+   <property name="asset" value="tiles.red.rock"/>
+  </properties>
+  <image source="rocks.png" width="32" height="32"/>
+ </tileset>
+ <layer name="Tile Layer 1" width="32" height="32">
+  <data encoding="base64" compression="zlib">
+   eJztw7ENAAAIA6Dq/0d7gauLkJAAAN/U0U2rqucH8z4D2w==
+  </data>
+ </layer>
+</map>
