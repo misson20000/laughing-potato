@@ -111,7 +111,7 @@ export class PlayState {
 
     this.messages = [];
     
-    this.messages.push(new Message(2, 12, "AVOID RINGS"));
+    this.messages.push(new Message(4, 10, "AVOID RINGS"));
     
     this.arcs.push(new Arc(10, -90, -5));
     this.arcs.push(new Arc(10, 5, 90));
