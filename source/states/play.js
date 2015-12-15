@@ -47,22 +47,26 @@ class Arc {
   }
   
   hit(p, sz, r) {
-    let ang = toDeg(Math.acos(((2*r*r)-(sz*sz))/(2*r*r)))/2;
-    console.log(this.b + ", " + p + ", " + this.e);
-    return !(this.e%360 < p-ang || this.b%360 > p+ang);
+    let ang = 2;
+    return !(this.e < p-ang || this.b > p+ang);
   }
   
   update(time) {
     this.b+= this.s*time;
     this.e+= this.s*time;
+    if(this.b >= 180 && this.e >= 180) {
+      this.b-= 360;
+      this.e-= 360;
+    }
   }
 }
 
 class Message {
-  constructor(startbeat, length, msg) {
+  constructor(startbeat, length, msg, yoff=0) {
     this.s = startbeat - 1;
     this.l = length;
     this.m = msg;
+    this.y = yoff;
   }
 
   draw(gfx, beat) {
@@ -76,7 +80,10 @@ class Message {
       gfx.ctx.save();
       gfx.ctx.resetTransform();
       let off = Math.sin(beat*Math.PI)*20;
-      gfx.ctx.fillText(this.m, 50 + off, 70 + off);
+      gfx.ctx.fillStyle = "black";
+      gfx.ctx.fillText(this.m, 51 + off, 71 + off + this.y);
+      gfx.ctx.fillStyle = "white";
+      gfx.ctx.fillText(this.m, 50 + off, 70 + off + this.y);
       gfx.ctx.restore();
       gfx.ctx.globalAlpha = 1;
     }
@@ -111,7 +118,8 @@ export class PlayState {
     this.arcs.push(new Arc(12, -90, -5));
     this.arcs.push(new Arc(12, 5, 90));
 
-    this.messages.push(new Message(14, 12, "USE <LEFT> AND <RIGHT> (OR <A> AND <D> IF YOU PREFER)"));
+    this.messages.push(new Message(14, 12, "USE <LEFT> AND <RIGHT>"));
+    this.messages.push(new Message(14, 12, "   (OR <A> AND <D> IF YOU PREFER)", 32));
     this.arcs.push(new Arc(26, -90, -15));
     this.arcs.push(new Arc(26, -5, 90));
     this.arcs.push(new Arc(28, -90, -15));
@@ -235,6 +243,7 @@ export class PlayState {
     this.synced = false;
     this.checkpoint = 0;
     this.checkpointNo = 0;
+    this.score = this.scoreAtCheckpoint = 0;
   }
 
 /*  setSlow(v) {
@@ -308,6 +317,7 @@ export class PlayState {
     }
     this.game.sfx.playSound(this.assets.sfx.crash, 0.3);
     this.syncBgm();
+    this.score = this.scoreAtCheckpoint;
   }
   
   render() {    
@@ -322,17 +332,20 @@ export class PlayState {
     if(this.beat >= 60 && this.checkpointNo < 1) {
       this.checkpoint = this.game.gametime.now;
       this.checkpointNo = 1;
+      this.scoreAtCheckpoint = this.score;
     }
     if(this.beat >= 96 && this.checkpointNo < 2) {
       this.checkpoint = this.game.gametime.now;
       this.checkpointNo = 2;
+      this.scoreAtCheckpoint = this.score;
     }
     
     //this.bgm.setSpeed(1-((1-this.game.gametime.factor)/2));
     this.centerX = 0;
     this.centerY = -this.camera.height/2-100;
     
-    this.playerAngle+= (this.playerAngleTarget-this.playerAngle)*(this.game.gametime.delta/1000.0)*20;
+    //this.playerAngle+= (this.playerAngleTarget-this.playerAngle)*(this.game.gametime.delta/1000.0)*20;
+    this.playerAngle+= (this.playerAngleTarget-this.playerAngle)*Math.pow(1/3, this.game.gametime.delta*60/1000);
     
     this.game.gfx.lookThrough(this.camera);
     this.game.gfx.clearScreen(SKY_COLOR);
@@ -381,18 +394,24 @@ export class PlayState {
     }
 
     if(scored) {
-//      this.game.sfx.playSound(this.assets.sfx.score, 0.3);
+      this.score++;
     }
+
+    let gtx = this.game.gfx.ctx;
+    gtx.resetTransform();
+    gtx.font = "30px monospace";
+    let w = gtx.measureText(this.score).width;
+    gtx.fillStyle = "black"; gtx.fillText(this.score, this.game.gfx.width-w-1, this.game.gfx.height-1);
+    gtx.fillStyle = "white"; gtx.fillText(this.score, this.game.gfx.width-w-2, this.game.gfx.height-2);
     
-    this.game.gfx.lookThrough(this.camera);
     for(let i = 0; i < this.messages.length; i++) {
       this.messages[i].draw(this.game.gfx, this.beat);
     }
     
-    if(this.input.right.pressed() && this.playerAngleTarget < 6 && (this.playerAngleTarget-this.playerAngle) < 0.05) {
+    if(this.input.right.pressed() && this.playerAngleTarget < 6 && (this.playerAngleTarget-this.playerAngle) < 0.03) {
       this.playerAngleTarget++;
     }
-    if(this.input.left.pressed() && this.playerAngleTarget > -6 && (this.playerAngle - this.playerAngleTarget) < 0.05) {
+    if(this.input.left.pressed() && this.playerAngleTarget > -6 && (this.playerAngle - this.playerAngleTarget) < 0.03) {
       this.playerAngleTarget--;
     }
 
